@@ -1,78 +1,600 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "region": "NP3F",
   "reference_region": "NP3E",
   "fragment_count": 88,
-  "vram_bases": {
-    "status": "verified_equal_to_reference_during_local_analysis"
-  },
+  "fragment_rom_end": "0x437610",
+  "catalog_status": "candidate",
+  "notes": [
+    "Fragment ROM starts were reconstructed from the NP3F fragment headers during the local analysis.",
+    "VRAM values marked guessed are hypotheses based on call/load relationships and must be validated before use in a final build.",
+    "No entry in this catalog alone proves a successful Splat or linker reconstruction."
+  ],
+  "fragments": [
+    {
+      "id": 1,
+      "rom_start": "0xA8A80",
+      "vram": "0x83500000",
+      "confidence": "established"
+    },
+    {
+      "id": 2,
+      "rom_start": "0xAD260",
+      "vram": "0x81900000",
+      "confidence": "established"
+    },
+    {
+      "id": 3,
+      "rom_start": "0xADCA0",
+      "vram": "0x81A00000",
+      "confidence": "established"
+    },
+    {
+      "id": 4,
+      "rom_start": "0xAE5E0",
+      "vram": "0x81800000",
+      "confidence": "established"
+    },
+    {
+      "id": 5,
+      "rom_start": "0xB4D90",
+      "vram": "0x83200000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 6,
+      "rom_start": "0xB5DA0",
+      "vram": "0x83100000",
+      "confidence": "established"
+    },
+    {
+      "id": 7,
+      "rom_start": "0xBA230",
+      "vram": "0x83000000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 8,
+      "rom_start": "0xCC6B0",
+      "vram": "0x82F00000",
+      "confidence": "established"
+    },
+    {
+      "id": 9,
+      "rom_start": "0xD0480",
+      "vram": "0x8FB00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 10,
+      "rom_start": "0xD4C30",
+      "vram": "0x82800000",
+      "confidence": "established"
+    },
+    {
+      "id": 11,
+      "rom_start": "0xD7BA0",
+      "vram": "0x81600000",
+      "confidence": "established"
+    },
+    {
+      "id": 12,
+      "rom_start": "0xE5310",
+      "vram": "0x81400000",
+      "confidence": "established"
+    },
+    {
+      "id": 13,
+      "rom_start": "0xEE080",
+      "vram": "0x82400000",
+      "confidence": "established"
+    },
+    {
+      "id": 14,
+      "rom_start": "0xF8190",
+      "vram": "0x81300000",
+      "confidence": "established"
+    },
+    {
+      "id": 15,
+      "rom_start": "0x10CF70",
+      "vram": "0x83F00000",
+      "confidence": "established"
+    },
+    {
+      "id": 16,
+      "rom_start": "0x10D470",
+      "vram": "0x82000000",
+      "confidence": "established"
+    },
+    {
+      "id": 17,
+      "rom_start": "0x10F9C0",
+      "vram": "0x82200000",
+      "confidence": "established"
+    },
+    {
+      "id": 18,
+      "rom_start": "0x120260",
+      "vram": "0x81700000",
+      "confidence": "established"
+    },
+    {
+      "id": 19,
+      "rom_start": "0x1210E0",
+      "vram": "0x82300000",
+      "confidence": "established"
+    },
+    {
+      "id": 20,
+      "rom_start": "0x1280D0",
+      "vram": "0x82600000",
+      "confidence": "established"
+    },
+    {
+      "id": 21,
+      "rom_start": "0x13FF80",
+      "vram": "0x82500000",
+      "confidence": "established"
+    },
+    {
+      "id": 22,
+      "rom_start": "0x14A2C0",
+      "vram": "0x82700000",
+      "confidence": "established"
+    },
+    {
+      "id": 23,
+      "rom_start": "0x14DF30",
+      "vram": "0x82A00000",
+      "confidence": "established"
+    },
+    {
+      "id": 24,
+      "rom_start": "0x14FE00",
+      "vram": "0x82B00000",
+      "confidence": "established"
+    },
+    {
+      "id": 25,
+      "rom_start": "0x15A040",
+      "vram": "0x82100000",
+      "confidence": "established"
+    },
+    {
+      "id": 26,
+      "rom_start": "0x15E8B0",
+      "vram": "0x81000000",
+      "confidence": "established"
+    },
+    {
+      "id": 27,
+      "rom_start": "0x165C50",
+      "vram": "0x81100000",
+      "confidence": "established"
+    },
+    {
+      "id": 28,
+      "rom_start": "0x165EC0",
+      "vram": "0x80000000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 29,
+      "rom_start": "0x166040",
+      "vram": "0x88000000",
+      "confidence": "established"
+    },
+    {
+      "id": 30,
+      "rom_start": "0x16D4D0",
+      "vram": "0x88100000",
+      "confidence": "established"
+    },
+    {
+      "id": 31,
+      "rom_start": "0x173280",
+      "vram": "0x88200000",
+      "confidence": "established"
+    },
+    {
+      "id": 32,
+      "rom_start": "0x1B1310",
+      "vram": "0x88300000",
+      "confidence": "established"
+    },
+    {
+      "id": 33,
+      "rom_start": "0x1BBBC0",
+      "vram": "0x88400000",
+      "confidence": "established"
+    },
+    {
+      "id": 34,
+      "rom_start": "0x1BD610",
+      "vram": "0x88500000",
+      "confidence": "established"
+    },
+    {
+      "id": 35,
+      "rom_start": "0x1CCC00",
+      "vram": "0x88600000",
+      "confidence": "established"
+    },
+    {
+      "id": 36,
+      "rom_start": "0x1CE9F0",
+      "vram": "0x88700000",
+      "confidence": "established"
+    },
+    {
+      "id": 37,
+      "rom_start": "0x1D0960",
+      "vram": "0x88800000",
+      "confidence": "established"
+    },
+    {
+      "id": 38,
+      "rom_start": "0x1D55F0",
+      "vram": "0x88900000",
+      "confidence": "established"
+    },
+    {
+      "id": 39,
+      "rom_start": "0x1DA2E0",
+      "vram": "0x88A00000",
+      "confidence": "established"
+    },
+    {
+      "id": 40,
+      "rom_start": "0x1DC1D0",
+      "vram": "0x88B00000",
+      "confidence": "established"
+    },
+    {
+      "id": 41,
+      "rom_start": "0x1E2E90",
+      "vram": "0x88C00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 42,
+      "rom_start": "0x1E4D70",
+      "vram": "0x88D00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 43,
+      "rom_start": "0x1E59F0",
+      "vram": "0x8AC00000",
+      "confidence": "established"
+    },
+    {
+      "id": 44,
+      "rom_start": "0x1EE270",
+      "vram": "0x8AF00000",
+      "confidence": "established"
+    },
+    {
+      "id": 45,
+      "rom_start": "0x225180",
+      "vram": "0x8AB00000",
+      "confidence": "established"
+    },
+    {
+      "id": 46,
+      "rom_start": "0x23C2E0",
+      "vram": "0x8AE00000",
+      "confidence": "established"
+    },
+    {
+      "id": 47,
+      "rom_start": "0x246620",
+      "vram": "0x86000000",
+      "confidence": "established"
+    },
+    {
+      "id": 48,
+      "rom_start": "0x256000",
+      "vram": "0x87C00000",
+      "confidence": "established"
+    },
+    {
+      "id": 49,
+      "rom_start": "0x25A670",
+      "vram": "0x86100000",
+      "confidence": "established"
+    },
+    {
+      "id": 50,
+      "rom_start": "0x266A40",
+      "vram": "0x86200000",
+      "confidence": "established"
+    },
+    {
+      "id": 51,
+      "rom_start": "0x275E20",
+      "vram": "0x86300000",
+      "confidence": "established"
+    },
+    {
+      "id": 52,
+      "rom_start": "0x27E4C0",
+      "vram": "0x86400000",
+      "confidence": "established"
+    },
+    {
+      "id": 53,
+      "rom_start": "0x2894B0",
+      "vram": "0x86500000",
+      "confidence": "established"
+    },
+    {
+      "id": 54,
+      "rom_start": "0x299920",
+      "vram": "0x86600000",
+      "confidence": "established"
+    },
+    {
+      "id": 55,
+      "rom_start": "0x2A24E0",
+      "vram": "0x86700000",
+      "confidence": "established"
+    },
+    {
+      "id": 56,
+      "rom_start": "0x2B1540",
+      "vram": "0x86800000",
+      "confidence": "established"
+    },
+    {
+      "id": 57,
+      "rom_start": "0x2BB830",
+      "vram": "0x83300000",
+      "confidence": "established"
+    },
+    {
+      "id": 58,
+      "rom_start": "0x2C8410",
+      "vram": "0x83400000",
+      "confidence": "established"
+    },
+    {
+      "id": 59,
+      "rom_start": "0x2CD3B0",
+      "vram": "0x86900000",
+      "confidence": "established"
+    },
+    {
+      "id": 60,
+      "rom_start": "0x2E1080",
+      "vram": "0x86A00000",
+      "confidence": "established"
+    },
+    {
+      "id": 61,
+      "rom_start": "0x2F2F50",
+      "vram": "0x86B00000",
+      "confidence": "established"
+    },
+    {
+      "id": 62,
+      "rom_start": "0x303510",
+      "vram": "0x86C00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 63,
+      "rom_start": "0x303970",
+      "vram": "0x87E00000",
+      "confidence": "established"
+    },
+    {
+      "id": 64,
+      "rom_start": "0x322C70",
+      "vram": "0x87F00000",
+      "confidence": "established"
+    },
+    {
+      "id": 65,
+      "rom_start": "0x335DC0",
+      "vram": "0x87D00000",
+      "confidence": "established"
+    },
+    {
+      "id": 66,
+      "rom_start": "0x3365F0",
+      "vram": "0x82E00000",
+      "confidence": "established"
+    },
+    {
+      "id": 67,
+      "rom_start": "0x33CB00",
+      "vram": "0x82900000",
+      "confidence": "established"
+    },
+    {
+      "id": 68,
+      "rom_start": "0x357D20",
+      "vram": "0x8F000000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 69,
+      "rom_start": "0x358830",
+      "vram": "0x8F100000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 70,
+      "rom_start": "0x35DD90",
+      "vram": "0x8F200000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 71,
+      "rom_start": "0x35E900",
+      "vram": "0x8F300000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 72,
+      "rom_start": "0x35FC90",
+      "vram": "0x8F400000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 73,
+      "rom_start": "0x362890",
+      "vram": "0x8F500000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 74,
+      "rom_start": "0x363590",
+      "vram": "0x8F600000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 75,
+      "rom_start": "0x364500",
+      "vram": "0x8FA00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 76,
+      "rom_start": "0x3667F0",
+      "vram": "0x8F700000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 77,
+      "rom_start": "0x3690C0",
+      "vram": "0x8F800000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 78,
+      "rom_start": "0x36DD90",
+      "vram": "0x8F900000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 79,
+      "rom_start": "0x36F890",
+      "vram": "0x84100000",
+      "confidence": "established"
+    },
+    {
+      "id": 80,
+      "rom_start": "0x419480",
+      "vram": "0x84200000",
+      "confidence": "established"
+    },
+    {
+      "id": 81,
+      "rom_start": "0x41D750",
+      "vram": "0x84300000",
+      "confidence": "established"
+    },
+    {
+      "id": 82,
+      "rom_start": "0x420E80",
+      "vram": "0x82D00000",
+      "confidence": "established"
+    },
+    {
+      "id": 83,
+      "rom_start": "0x429850",
+      "vram": "0x82C00000",
+      "confidence": "established"
+    },
+    {
+      "id": 84,
+      "rom_start": "0x42F160",
+      "vram": "0x8FC00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 85,
+      "rom_start": "0x4320C0",
+      "vram": "0x8FD00000",
+      "confidence": "guessed"
+    },
+    {
+      "id": 86,
+      "rom_start": "0x434720",
+      "vram": "0x84400000",
+      "confidence": "established"
+    },
+    {
+      "id": 87,
+      "rom_start": "0x435A70",
+      "vram": "0x81B00000",
+      "confidence": "established"
+    },
+    {
+      "id": 88,
+      "rom_start": "0x436C20",
+      "vram": "0x81C00000",
+      "confidence": "established"
+    }
+  ],
   "rom_delta_ranges": [
     {
-      "fragments": "1-11",
       "first": 1,
       "last": 11,
       "delta_bytes": 32
     },
     {
-      "fragments": "12-31",
       "first": 12,
       "last": 31,
       "delta_bytes": 48
     },
     {
-      "fragments": "32-34",
       "first": 32,
       "last": 34,
       "delta_bytes": 432
     },
     {
-      "fragments": "35-36",
       "first": 35,
       "last": 36,
       "delta_bytes": 496
     },
     {
-      "fragments": "37-45",
       "first": 37,
       "last": 45,
       "delta_bytes": 608
     },
     {
-      "fragments": "46-68",
       "first": 46,
       "last": 68,
       "delta_bytes": 1136
     },
     {
-      "fragments": "69-71",
       "first": 69,
       "last": 71,
       "delta_bytes": 1152
     },
     {
-      "fragments": "72-77",
       "first": 72,
       "last": 77,
       "delta_bytes": 1184
     },
     {
-      "fragments": "78-79",
       "first": 78,
       "last": 79,
       "delta_bytes": 1040
     },
     {
-      "fragments": "80-85",
       "first": 80,
       "last": 85,
       "delta_bytes": 1200
     },
     {
-      "fragments": "86-88",
       "first": 86,
       "last": 88,
       "delta_bytes": 3184
     }
-  ],
-  "verification_note": "These ROM deltas come from the prior NP3F fragment-header analysis. They are metadata for relocation work, not a substitute for a validated full build."
+  ]
 }
