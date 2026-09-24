@@ -1,3 +1,15 @@
 [submodule "upstream/pokestadiumgs"]
 	path = upstream/pokestadiumgs
 	url = https://github.com/pret/pokestadiumgs.git
+
+[submodule "upstream/N64Recomp"]
+	path = upstream/N64Recomp
+	url = https://github.com/N64Recomp/N64Recomp.git
+
+[submodule "upstream/N64ModernRuntime"]
+	path = upstream/N64ModernRuntime
+	url = https://github.com/N64Recomp/N64ModernRuntime.git
+
+[submodule "upstream/RecompFrontend"]
+	path = upstream/RecompFrontend
+	url = https://github.com/N64Recomp/RecompFrontend.git
