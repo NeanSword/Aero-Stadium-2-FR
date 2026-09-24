@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(aero_runtime STATIC
     src/fixed_step_clock.cpp
+    src/runtime_host.cpp
 )
 
 target_include_directories(aero_runtime
@@ -33,11 +34,24 @@ target_link_libraries(aero_runtime_probe
         aero_runtime
 )
 
+add_executable(aero_runtime_host_probe
+    src/runtime_host_probe.cpp
+)
+
+target_link_libraries(aero_runtime_host_probe
+    PRIVATE
+        aero_runtime
+)
+
 if(MSVC)
     target_compile_options(aero_runtime_probe PRIVATE /W4 /permissive-)
+    target_compile_options(aero_runtime_host_probe PRIVATE /W4 /permissive-)
 else()
     target_compile_options(aero_runtime_probe PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(aero_runtime_host_probe PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 enable_testing()
+
 add_test(NAME aero_runtime_probe COMMAND aero_runtime_probe)
+add_test(NAME aero_runtime_host_probe COMMAND aero_runtime_host_probe)
