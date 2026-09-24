@@ -1,0 +1,3 @@
+[submodule "upstream/pokestadiumgs"]
+	path = upstream/pokestadiumgs
+	url = https://github.com/pret/pokestadiumgs.git

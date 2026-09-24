@@ -1,0 +1,14 @@
+{
+  "project": "Aero-Stadium-2-FR",
+  "game": "Pokemon Stadium 2",
+  "region": "NP3F",
+  "rom": {
+    "size": 67108864,
+    "md5": "4748d96916ae2bcc5fc1630515ee2561",
+    "sha1": "d7e13535b671024a92822db01507e87bd42f68ec",
+    "sha256": "b661d92a94eb3c7a00cd27acc1e93d1e52299bf85a76397ee38e998a84af68ea"
+  },
+  "base_project": "pret/pokestadiumgs",
+  "working_system": "Windows",
+  "rom_path_hint": "baseroms/fr/baserom.z64"
+}

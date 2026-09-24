@@ -1,0 +1,29 @@
+# Local ROMs
+baseroms/*/baserom.z64
+*.z64
+*.n64
+*.v64
+*.rom
+
+# Generated build/extraction output
+build/
+dist/
+generated/
+extracted/
+logs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local tooling
+.local/
