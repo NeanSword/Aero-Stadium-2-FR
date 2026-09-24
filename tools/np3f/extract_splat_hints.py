@@ -30,11 +30,11 @@ def parse_splat_hints(text: str) -> dict[str, object]:
     text_hints: list[dict[str, object]] = []
 
     for index, line in enumerate(lines):
-        fragment_match = FRAGMENT_HINT_RE.match(line)
+        fragment_match = FRAGMENT_HINT_RE.match(line.strip())
         if fragment_match:
             rom_start = None
             for following in lines[index + 1 : index + 5]:
-                start_match = RODATA_START_RE.match(following)
+                start_match = RODATA_START_RE.match(following.strip())
                 if start_match:
                     rom_start = int(start_match.group("rom_start"), 0)
                     break
@@ -52,12 +52,12 @@ def parse_splat_hints(text: str) -> dict[str, object]:
                 )
             continue
 
-        text_match = TEXT_HINT_RE.match(line)
+        text_match = TEXT_HINT_RE.match(line.strip())
         if text_match:
             function = None
             symbol = None
             if index + 1 < len(lines):
-                usage_match = TEXT_USAGE_RE.match(lines[index + 1])
+                usage_match = TEXT_USAGE_RE.match(lines[index + 1].strip())
                 if usage_match:
                     function = usage_match.group("function")
                     symbol = usage_match.group("symbol")
