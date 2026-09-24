@@ -1,7 +1,7 @@
 # NP3F Windows/Splat extraction candidate.
 # Generated from config/np3f_fragments.json.
 # Candidate only: entries marked guessed in the catalog still require independent validation.
-# Uses the current Splat YAML mapping format.
+# Each code segment now contains an explicit asm subsegment for Splat 0.50.x.
 
 options:
   base_path: .
@@ -24,525 +24,701 @@ segments:
     start: 0xA8A80
     end: 0xAD260
     vram: 0x83500000
+    subsegments:
+      - [0xA8A80, asm, fragment1]
 
   - name: fragment2
     type: code
     start: 0xAD260
     end: 0xADCA0
     vram: 0x81900000
+    subsegments:
+      - [0xAD260, asm, fragment2]
 
   - name: fragment3
     type: code
     start: 0xADCA0
     end: 0xAE5E0
     vram: 0x81A00000
+    subsegments:
+      - [0xADCA0, asm, fragment3]
 
   - name: fragment4
     type: code
     start: 0xAE5E0
     end: 0xB4D90
     vram: 0x81800000
+    subsegments:
+      - [0xAE5E0, asm, fragment4]
 
   - name: fragment5
     type: code
     start: 0xB4D90
     end: 0xB5DA0
     vram: 0x83200000
+    subsegments:
+      - [0xB4D90, asm, fragment5]
 
   - name: fragment6
     type: code
     start: 0xB5DA0
     end: 0xBA230
     vram: 0x83100000
+    subsegments:
+      - [0xB5DA0, asm, fragment6]
 
   - name: fragment7
     type: code
     start: 0xBA230
     end: 0xCC6B0
     vram: 0x83000000
+    subsegments:
+      - [0xBA230, asm, fragment7]
 
   - name: fragment8
     type: code
     start: 0xCC6B0
     end: 0xD0480
     vram: 0x82F00000
+    subsegments:
+      - [0xCC6B0, asm, fragment8]
 
   - name: fragment9
     type: code
     start: 0xD0480
     end: 0xD4C30
     vram: 0x8FB00000
+    subsegments:
+      - [0xD0480, asm, fragment9]
 
   - name: fragment10
     type: code
     start: 0xD4C30
     end: 0xD7BA0
     vram: 0x82800000
+    subsegments:
+      - [0xD4C30, asm, fragment10]
 
   - name: fragment11
     type: code
     start: 0xD7BA0
     end: 0xE5310
     vram: 0x81600000
+    subsegments:
+      - [0xD7BA0, asm, fragment11]
 
   - name: fragment12
     type: code
     start: 0xE5310
     end: 0xEE080
     vram: 0x81400000
+    subsegments:
+      - [0xE5310, asm, fragment12]
 
   - name: fragment13
     type: code
     start: 0xEE080
     end: 0xF8190
     vram: 0x82400000
+    subsegments:
+      - [0xEE080, asm, fragment13]
 
   - name: fragment14
     type: code
     start: 0xF8190
     end: 0x10CF70
     vram: 0x81300000
+    subsegments:
+      - [0xF8190, asm, fragment14]
 
   - name: fragment15
     type: code
     start: 0x10CF70
     end: 0x10D470
     vram: 0x83F00000
+    subsegments:
+      - [0x10CF70, asm, fragment15]
 
   - name: fragment16
     type: code
     start: 0x10D470
     end: 0x10F9C0
     vram: 0x82000000
+    subsegments:
+      - [0x10D470, asm, fragment16]
 
   - name: fragment17
     type: code
     start: 0x10F9C0
     end: 0x120260
     vram: 0x82200000
+    subsegments:
+      - [0x10F9C0, asm, fragment17]
 
   - name: fragment18
     type: code
     start: 0x120260
     end: 0x1210E0
     vram: 0x81700000
+    subsegments:
+      - [0x120260, asm, fragment18]
 
   - name: fragment19
     type: code
     start: 0x1210E0
     end: 0x1280D0
     vram: 0x82300000
+    subsegments:
+      - [0x1210E0, asm, fragment19]
 
   - name: fragment20
     type: code
     start: 0x1280D0
     end: 0x13FF80
     vram: 0x82600000
+    subsegments:
+      - [0x1280D0, asm, fragment20]
 
   - name: fragment21
     type: code
     start: 0x13FF80
     end: 0x14A2C0
     vram: 0x82500000
+    subsegments:
+      - [0x13FF80, asm, fragment21]
 
   - name: fragment22
     type: code
     start: 0x14A2C0
     end: 0x14DF30
     vram: 0x82700000
+    subsegments:
+      - [0x14A2C0, asm, fragment22]
 
   - name: fragment23
     type: code
     start: 0x14DF30
     end: 0x14FE00
     vram: 0x82A00000
+    subsegments:
+      - [0x14DF30, asm, fragment23]
 
   - name: fragment24
     type: code
     start: 0x14FE00
     end: 0x15A040
     vram: 0x82B00000
+    subsegments:
+      - [0x14FE00, asm, fragment24]
 
   - name: fragment25
     type: code
     start: 0x15A040
     end: 0x15E8B0
     vram: 0x82100000
+    subsegments:
+      - [0x15A040, asm, fragment25]
 
   - name: fragment26
     type: code
     start: 0x15E8B0
     end: 0x165C50
     vram: 0x81000000
+    subsegments:
+      - [0x15E8B0, asm, fragment26]
 
   - name: fragment27
     type: code
     start: 0x165C50
     end: 0x165EC0
     vram: 0x81100000
+    subsegments:
+      - [0x165C50, asm, fragment27]
 
   - name: fragment28
     type: code
     start: 0x165EC0
     end: 0x166040
     vram: 0x80000000
+    subsegments:
+      - [0x165EC0, asm, fragment28]
 
   - name: fragment29
     type: code
     start: 0x166040
     end: 0x16D4D0
     vram: 0x88000000
+    subsegments:
+      - [0x166040, asm, fragment29]
 
   - name: fragment30
     type: code
     start: 0x16D4D0
     end: 0x173280
     vram: 0x88100000
+    subsegments:
+      - [0x16D4D0, asm, fragment30]
 
   - name: fragment31
     type: code
     start: 0x173280
     end: 0x1B1310
     vram: 0x88200000
+    subsegments:
+      - [0x173280, asm, fragment31]
 
   - name: fragment32
     type: code
     start: 0x1B1310
     end: 0x1BBBC0
     vram: 0x88300000
+    subsegments:
+      - [0x1B1310, asm, fragment32]
 
   - name: fragment33
     type: code
     start: 0x1BBBC0
     end: 0x1BD610
     vram: 0x88400000
+    subsegments:
+      - [0x1BBBC0, asm, fragment33]
 
   - name: fragment34
     type: code
     start: 0x1BD610
     end: 0x1CCC00
     vram: 0x88500000
+    subsegments:
+      - [0x1BD610, asm, fragment34]
 
   - name: fragment35
     type: code
     start: 0x1CCC00
     end: 0x1CE9F0
     vram: 0x88600000
+    subsegments:
+      - [0x1CCC00, asm, fragment35]
 
   - name: fragment36
     type: code
     start: 0x1CE9F0
     end: 0x1D0960
     vram: 0x88700000
+    subsegments:
+      - [0x1CE9F0, asm, fragment36]
 
   - name: fragment37
     type: code
     start: 0x1D0960
     end: 0x1D55F0
     vram: 0x88800000
+    subsegments:
+      - [0x1D0960, asm, fragment37]
 
   - name: fragment38
     type: code
     start: 0x1D55F0
     end: 0x1DA2E0
     vram: 0x88900000
+    subsegments:
+      - [0x1D55F0, asm, fragment38]
 
   - name: fragment39
     type: code
     start: 0x1DA2E0
     end: 0x1DC1D0
     vram: 0x88A00000
+    subsegments:
+      - [0x1DA2E0, asm, fragment39]
 
   - name: fragment40
     type: code
     start: 0x1DC1D0
     end: 0x1E2E90
     vram: 0x88B00000
+    subsegments:
+      - [0x1DC1D0, asm, fragment40]
 
   - name: fragment41
     type: code
     start: 0x1E2E90
     end: 0x1E4D70
     vram: 0x88C00000
+    subsegments:
+      - [0x1E2E90, asm, fragment41]
 
   - name: fragment42
     type: code
     start: 0x1E4D70
     end: 0x1E59F0
     vram: 0x88D00000
+    subsegments:
+      - [0x1E4D70, asm, fragment42]
 
   - name: fragment43
     type: code
     start: 0x1E59F0
     end: 0x1EE270
     vram: 0x8AC00000
+    subsegments:
+      - [0x1E59F0, asm, fragment43]
 
   - name: fragment44
     type: code
     start: 0x1EE270
     end: 0x225180
     vram: 0x8AF00000
+    subsegments:
+      - [0x1EE270, asm, fragment44]
 
   - name: fragment45
     type: code
     start: 0x225180
     end: 0x23C2E0
     vram: 0x8AB00000
+    subsegments:
+      - [0x225180, asm, fragment45]
 
   - name: fragment46
     type: code
     start: 0x23C2E0
     end: 0x246620
     vram: 0x8AE00000
+    subsegments:
+      - [0x23C2E0, asm, fragment46]
 
   - name: fragment47
     type: code
     start: 0x246620
     end: 0x256000
     vram: 0x86000000
+    subsegments:
+      - [0x246620, asm, fragment47]
 
   - name: fragment48
     type: code
     start: 0x256000
     end: 0x25A670
     vram: 0x87C00000
+    subsegments:
+      - [0x256000, asm, fragment48]
 
   - name: fragment49
     type: code
     start: 0x25A670
     end: 0x266A40
     vram: 0x86100000
+    subsegments:
+      - [0x25A670, asm, fragment49]
 
   - name: fragment50
     type: code
     start: 0x266A40
     end: 0x275E20
     vram: 0x86200000
+    subsegments:
+      - [0x266A40, asm, fragment50]
 
   - name: fragment51
     type: code
     start: 0x275E20
     end: 0x27E4C0
     vram: 0x86300000
+    subsegments:
+      - [0x275E20, asm, fragment51]
 
   - name: fragment52
     type: code
     start: 0x27E4C0
     end: 0x2894B0
     vram: 0x86400000
+    subsegments:
+      - [0x27E4C0, asm, fragment52]
 
   - name: fragment53
     type: code
     start: 0x2894B0
     end: 0x299920
     vram: 0x86500000
+    subsegments:
+      - [0x2894B0, asm, fragment53]
 
   - name: fragment54
     type: code
     start: 0x299920
     end: 0x2A24E0
     vram: 0x86600000
+    subsegments:
+      - [0x299920, asm, fragment54]
 
   - name: fragment55
     type: code
     start: 0x2A24E0
     end: 0x2B1540
     vram: 0x86700000
+    subsegments:
+      - [0x2A24E0, asm, fragment55]
 
   - name: fragment56
     type: code
     start: 0x2B1540
     end: 0x2BB830
     vram: 0x86800000
+    subsegments:
+      - [0x2B1540, asm, fragment56]
 
   - name: fragment57
     type: code
     start: 0x2BB830
     end: 0x2C8410
     vram: 0x83300000
+    subsegments:
+      - [0x2BB830, asm, fragment57]
 
   - name: fragment58
     type: code
     start: 0x2C8410
     end: 0x2CD3B0
     vram: 0x83400000
+    subsegments:
+      - [0x2C8410, asm, fragment58]
 
   - name: fragment59
     type: code
     start: 0x2CD3B0
     end: 0x2E1080
     vram: 0x86900000
+    subsegments:
+      - [0x2CD3B0, asm, fragment59]
 
   - name: fragment60
     type: code
     start: 0x2E1080
     end: 0x2F2F50
     vram: 0x86A00000
+    subsegments:
+      - [0x2E1080, asm, fragment60]
 
   - name: fragment61
     type: code
     start: 0x2F2F50
     end: 0x303510
     vram: 0x86B00000
+    subsegments:
+      - [0x2F2F50, asm, fragment61]
 
   - name: fragment62
     type: code
     start: 0x303510
     end: 0x303970
     vram: 0x86C00000
+    subsegments:
+      - [0x303510, asm, fragment62]
 
   - name: fragment63
     type: code
     start: 0x303970
     end: 0x322C70
     vram: 0x87E00000
+    subsegments:
+      - [0x303970, asm, fragment63]
 
   - name: fragment64
     type: code
     start: 0x322C70
     end: 0x335DC0
     vram: 0x87F00000
+    subsegments:
+      - [0x322C70, asm, fragment64]
 
   - name: fragment65
     type: code
     start: 0x335DC0
     end: 0x3365F0
     vram: 0x87D00000
+    subsegments:
+      - [0x335DC0, asm, fragment65]
 
   - name: fragment66
     type: code
     start: 0x3365F0
     end: 0x33CB00
     vram: 0x82E00000
+    subsegments:
+      - [0x3365F0, asm, fragment66]
 
   - name: fragment67
     type: code
     start: 0x33CB00
     end: 0x357D20
     vram: 0x82900000
+    subsegments:
+      - [0x33CB00, asm, fragment67]
 
   - name: fragment68
     type: code
     start: 0x357D20
     end: 0x358830
     vram: 0x8F000000
+    subsegments:
+      - [0x357D20, asm, fragment68]
 
   - name: fragment69
     type: code
     start: 0x358830
     end: 0x35DD90
     vram: 0x8F100000
+    subsegments:
+      - [0x358830, asm, fragment69]
 
   - name: fragment70
     type: code
     start: 0x35DD90
     end: 0x35E900
     vram: 0x8F200000
+    subsegments:
+      - [0x35DD90, asm, fragment70]
 
   - name: fragment71
     type: code
     start: 0x35E900
     end: 0x35FC90
     vram: 0x8F300000
+    subsegments:
+      - [0x35E900, asm, fragment71]
 
   - name: fragment72
     type: code
     start: 0x35FC90
     end: 0x362890
     vram: 0x8F400000
+    subsegments:
+      - [0x35FC90, asm, fragment72]
 
   - name: fragment73
     type: code
     start: 0x362890
     end: 0x363590
     vram: 0x8F500000
+    subsegments:
+      - [0x362890, asm, fragment73]
 
   - name: fragment74
     type: code
     start: 0x363590
     end: 0x364500
     vram: 0x8F600000
+    subsegments:
+      - [0x363590, asm, fragment74]
 
   - name: fragment75
     type: code
     start: 0x364500
     end: 0x3667F0
     vram: 0x8FA00000
+    subsegments:
+      - [0x364500, asm, fragment75]
 
   - name: fragment76
     type: code
     start: 0x3667F0
     end: 0x3690C0
     vram: 0x8F700000
+    subsegments:
+      - [0x3667F0, asm, fragment76]
 
   - name: fragment77
     type: code
     start: 0x3690C0
     end: 0x36DD90
     vram: 0x8F800000
+    subsegments:
+      - [0x3690C0, asm, fragment77]
 
   - name: fragment78
     type: code
     start: 0x36DD90
     end: 0x36F890
     vram: 0x8F900000
+    subsegments:
+      - [0x36DD90, asm, fragment78]
 
   - name: fragment79
     type: code
     start: 0x36F890
     end: 0x419480
     vram: 0x84100000
+    subsegments:
+      - [0x36F890, asm, fragment79]
 
   - name: fragment80
     type: code
     start: 0x419480
     end: 0x41D750
     vram: 0x84200000
+    subsegments:
+      - [0x419480, asm, fragment80]
 
   - name: fragment81
     type: code
     start: 0x41D750
     end: 0x420E80
     vram: 0x84300000
+    subsegments:
+      - [0x41D750, asm, fragment81]
 
   - name: fragment82
     type: code
     start: 0x420E80
     end: 0x429850
     vram: 0x82D00000
+    subsegments:
+      - [0x420E80, asm, fragment82]
 
   - name: fragment83
     type: code
     start: 0x429850
     end: 0x42F160
     vram: 0x82C00000
+    subsegments:
+      - [0x429850, asm, fragment83]
 
   - name: fragment84
     type: code
     start: 0x42F160
     end: 0x4320C0
     vram: 0x8FC00000
+    subsegments:
+      - [0x42F160, asm, fragment84]
 
   - name: fragment85
     type: code
     start: 0x4320C0
     end: 0x434720
     vram: 0x8FD00000
+    subsegments:
+      - [0x4320C0, asm, fragment85]
 
   - name: fragment86
     type: code
     start: 0x434720
     end: 0x435A70
     vram: 0x84400000
+    subsegments:
+      - [0x434720, asm, fragment86]
 
   - name: fragment87
     type: code
     start: 0x435A70
     end: 0x436C20
     vram: 0x81B00000
+    subsegments:
+      - [0x435A70, asm, fragment87]
 
   - name: fragment88
     type: code
     start: 0x436C20
     end: 0x437610
     vram: 0x81C00000
+    subsegments:
+      - [0x436C20, asm, fragment88]
