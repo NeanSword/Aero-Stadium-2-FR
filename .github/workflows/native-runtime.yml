@@ -1,0 +1,22 @@
+name: Validate native runtime
+
+on:
+  push:
+    branches: ["main", "codex/**"]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S native -B build/native -A x64
+
+      - name: Build
+        run: cmake --build build/native --config Release
+
+      - name: Test
+        run: ctest --test-dir build/native -C Release --output-on-failure
