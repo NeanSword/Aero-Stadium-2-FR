@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "region": "NP3F",
+  "reference_region": "NP3E",
+  "fragment_count": 88,
+  "vram_bases": {
+    "status": "verified_equal_to_reference_during_local_analysis"
+  },
+  "rom_delta_ranges": [
+    {
+      "fragments": "1-11",
+      "first": 1,
+      "last": 11,
+      "delta_bytes": 32
+    },
+    {
+      "fragments": "12-31",
+      "first": 12,
+      "last": 31,
+      "delta_bytes": 48
+    },
+    {
+      "fragments": "32-34",
+      "first": 32,
+      "last": 34,
+      "delta_bytes": 432
+    },
+    {
+      "fragments": "35-36",
+      "first": 35,
+      "last": 36,
+      "delta_bytes": 496
+    },
+    {
+      "fragments": "37-45",
+      "first": 37,
+      "last": 45,
+      "delta_bytes": 608
+    },
+    {
+      "fragments": "46-68",
+      "first": 46,
+      "last": 68,
+      "delta_bytes": 1136
+    },
+    {
+      "fragments": "69-71",
+      "first": 69,
+      "last": 71,
+      "delta_bytes": 1152
+    },
+    {
+      "fragments": "72-77",
+      "first": 72,
+      "last": 77,
+      "delta_bytes": 1184
+    },
+    {
+      "fragments": "78-79",
+      "first": 78,
+      "last": 79,
+      "delta_bytes": 1040
+    },
+    {
+      "fragments": "80-85",
+      "first": 80,
+      "last": 85,
+      "delta_bytes": 1200
+    },
+    {
+      "fragments": "86-88",
+      "first": 86,
+      "last": 88,
+      "delta_bytes": 3184
+    }
+  ],
+  "verification_note": "These ROM deltas come from the prior NP3F fragment-header analysis. They are metadata for relocation work, not a substitute for a validated full build."
+}
