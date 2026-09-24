@@ -1,0 +1,443 @@
+# NP3F extraction candidate generated from config/np3f_fragments.json.
+# TEST CANDIDATE ONLY: several VRAM entries are still hypotheses and must be validated.
+# This file is intended for the Windows extraction/parser test, not as a final linker map.
+
+- name: fragment1
+  type: code
+  start: 0xA8A80
+  vram: 0x83500000
+
+- name: fragment2
+  type: code
+  start: 0xAD260
+  vram: 0x81900000
+
+- name: fragment3
+  type: code
+  start: 0xADCA0
+  vram: 0x81A00000
+
+- name: fragment4
+  type: code
+  start: 0xAE5E0
+  vram: 0x81800000
+
+- name: fragment5
+  type: code
+  start: 0xB4D90
+  vram: 0x83200000
+
+- name: fragment6
+  type: code
+  start: 0xB5DA0
+  vram: 0x83100000
+
+- name: fragment7
+  type: code
+  start: 0xBA230
+  vram: 0x83000000
+
+- name: fragment8
+  type: code
+  start: 0xCC6B0
+  vram: 0x82F00000
+
+- name: fragment9
+  type: code
+  start: 0xD0480
+  vram: 0x8FB00000
+
+- name: fragment10
+  type: code
+  start: 0xD4C30
+  vram: 0x82800000
+
+- name: fragment11
+  type: code
+  start: 0xD7BA0
+  vram: 0x81600000
+
+- name: fragment12
+  type: code
+  start: 0xE5310
+  vram: 0x81400000
+
+- name: fragment13
+  type: code
+  start: 0xEE080
+  vram: 0x82400000
+
+- name: fragment14
+  type: code
+  start: 0xF8190
+  vram: 0x81300000
+
+- name: fragment15
+  type: code
+  start: 0x10CF70
+  vram: 0x83F00000
+
+- name: fragment16
+  type: code
+  start: 0x10D470
+  vram: 0x82000000
+
+- name: fragment17
+  type: code
+  start: 0x10F9C0
+  vram: 0x82200000
+
+- name: fragment18
+  type: code
+  start: 0x120260
+  vram: 0x81700000
+
+- name: fragment19
+  type: code
+  start: 0x1210E0
+  vram: 0x82300000
+
+- name: fragment20
+  type: code
+  start: 0x1280D0
+  vram: 0x82600000
+
+- name: fragment21
+  type: code
+  start: 0x13FF80
+  vram: 0x82500000
+
+- name: fragment22
+  type: code
+  start: 0x14A2C0
+  vram: 0x82700000
+
+- name: fragment23
+  type: code
+  start: 0x14DF30
+  vram: 0x82A00000
+
+- name: fragment24
+  type: code
+  start: 0x14FE00
+  vram: 0x82B00000
+
+- name: fragment25
+  type: code
+  start: 0x15A040
+  vram: 0x82100000
+
+- name: fragment26
+  type: code
+  start: 0x15E8B0
+  vram: 0x81000000
+
+- name: fragment27
+  type: code
+  start: 0x165C50
+  vram: 0x81100000
+
+- name: fragment28
+  type: code
+  start: 0x165EC0
+  vram: 0x80000000
+
+- name: fragment29
+  type: code
+  start: 0x166040
+  vram: 0x88000000
+
+- name: fragment30
+  type: code
+  start: 0x16D4D0
+  vram: 0x88100000
+
+- name: fragment31
+  type: code
+  start: 0x173280
+  vram: 0x88200000
+
+- name: fragment32
+  type: code
+  start: 0x1B1310
+  vram: 0x88300000
+
+- name: fragment33
+  type: code
+  start: 0x1BBBC0
+  vram: 0x88400000
+
+- name: fragment34
+  type: code
+  start: 0x1BD610
+  vram: 0x88500000
+
+- name: fragment35
+  type: code
+  start: 0x1CCC00
+  vram: 0x88600000
+
+- name: fragment36
+  type: code
+  start: 0x1CE9F0
+  vram: 0x88700000
+
+- name: fragment37
+  type: code
+  start: 0x1D0960
+  vram: 0x88800000
+
+- name: fragment38
+  type: code
+  start: 0x1D55F0
+  vram: 0x88900000
+
+- name: fragment39
+  type: code
+  start: 0x1DA2E0
+  vram: 0x88A00000
+
+- name: fragment40
+  type: code
+  start: 0x1DC1D0
+  vram: 0x88B00000
+
+- name: fragment41
+  type: code
+  start: 0x1E2E90
+  vram: 0x88C00000
+
+- name: fragment42
+  type: code
+  start: 0x1E4D70
+  vram: 0x88D00000
+
+- name: fragment43
+  type: code
+  start: 0x1E59F0
+  vram: 0x8AC00000
+
+- name: fragment44
+  type: code
+  start: 0x1EE270
+  vram: 0x8AF00000
+
+- name: fragment45
+  type: code
+  start: 0x225180
+  vram: 0x8AB00000
+
+- name: fragment46
+  type: code
+  start: 0x23C2E0
+  vram: 0x8AE00000
+
+- name: fragment47
+  type: code
+  start: 0x246620
+  vram: 0x86000000
+
+- name: fragment48
+  type: code
+  start: 0x256000
+  vram: 0x87C00000
+
+- name: fragment49
+  type: code
+  start: 0x25A670
+  vram: 0x86100000
+
+- name: fragment50
+  type: code
+  start: 0x266A40
+  vram: 0x86200000
+
+- name: fragment51
+  type: code
+  start: 0x275E20
+  vram: 0x86300000
+
+- name: fragment52
+  type: code
+  start: 0x27E4C0
+  vram: 0x86400000
+
+- name: fragment53
+  type: code
+  start: 0x2894B0
+  vram: 0x86500000
+
+- name: fragment54
+  type: code
+  start: 0x299920
+  vram: 0x86600000
+
+- name: fragment55
+  type: code
+  start: 0x2A24E0
+  vram: 0x86700000
+
+- name: fragment56
+  type: code
+  start: 0x2B1540
+  vram: 0x86800000
+
+- name: fragment57
+  type: code
+  start: 0x2BB830
+  vram: 0x83300000
+
+- name: fragment58
+  type: code
+  start: 0x2C8410
+  vram: 0x83400000
+
+- name: fragment59
+  type: code
+  start: 0x2CD3B0
+  vram: 0x86900000
+
+- name: fragment60
+  type: code
+  start: 0x2E1080
+  vram: 0x86A00000
+
+- name: fragment61
+  type: code
+  start: 0x2F2F50
+  vram: 0x86B00000
+
+- name: fragment62
+  type: code
+  start: 0x303510
+  vram: 0x86C00000
+
+- name: fragment63
+  type: code
+  start: 0x303970
+  vram: 0x87E00000
+
+- name: fragment64
+  type: code
+  start: 0x322C70
+  vram: 0x87F00000
+
+- name: fragment65
+  type: code
+  start: 0x335DC0
+  vram: 0x87D00000
+
+- name: fragment66
+  type: code
+  start: 0x3365F0
+  vram: 0x82E00000
+
+- name: fragment67
+  type: code
+  start: 0x33CB00
+  vram: 0x82900000
+
+- name: fragment68
+  type: code
+  start: 0x357D20
+  vram: 0x8F000000
+
+- name: fragment69
+  type: code
+  start: 0x358830
+  vram: 0x8F100000
+
+- name: fragment70
+  type: code
+  start: 0x35DD90
+  vram: 0x8F200000
+
+- name: fragment71
+  type: code
+  start: 0x35E900
+  vram: 0x8F300000
+
+- name: fragment72
+  type: code
+  start: 0x35FC90
+  vram: 0x8F400000
+
+- name: fragment73
+  type: code
+  start: 0x362890
+  vram: 0x8F500000
+
+- name: fragment74
+  type: code
+  start: 0x363590
+  vram: 0x8F600000
+
+- name: fragment75
+  type: code
+  start: 0x364500
+  vram: 0x8FA00000
+
+- name: fragment76
+  type: code
+  start: 0x3667F0
+  vram: 0x8F700000
+
+- name: fragment77
+  type: code
+  start: 0x3690C0
+  vram: 0x8F800000
+
+- name: fragment78
+  type: code
+  start: 0x36DD90
+  vram: 0x8F900000
+
+- name: fragment79
+  type: code
+  start: 0x36F890
+  vram: 0x84100000
+
+- name: fragment80
+  type: code
+  start: 0x419480
+  vram: 0x84200000
+
+- name: fragment81
+  type: code
+  start: 0x41D750
+  vram: 0x84300000
+
+- name: fragment82
+  type: code
+  start: 0x420E80
+  vram: 0x82D00000
+
+- name: fragment83
+  type: code
+  start: 0x429850
+  vram: 0x82C00000
+
+- name: fragment84
+  type: code
+  start: 0x42F160
+  vram: 0x8FC00000
+
+- name: fragment85
+  type: code
+  start: 0x4320C0
+  vram: 0x8FD00000
+
+- name: fragment86
+  type: code
+  start: 0x434720
+  vram: 0x84400000
+
+- name: fragment87
+  type: code
+  start: 0x435A70
+  vram: 0x81B00000
+
+- name: fragment88
+  type: code
+  start: 0x436C20
+  vram: 0x81C00000
