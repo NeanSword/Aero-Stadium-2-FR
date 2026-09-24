@@ -1,6 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$CandidateYaml,
+    [string]$CandidateYaml = "",
 
     [string]$Rom = "",
 
@@ -18,7 +17,11 @@ $RomPath = if ([string]::IsNullOrWhiteSpace($Rom)) {
     (Resolve-Path -LiteralPath $Rom).Path
 }
 
-$CandidatePath = (Resolve-Path -LiteralPath $CandidateYaml).Path
+$CandidatePath = if ([string]::IsNullOrWhiteSpace($CandidateYaml)) {
+    Join-Path $RepoRoot "yamls\fr\splat.yaml"
+} else {
+    (Resolve-Path -LiteralPath $CandidateYaml).Path
+}
 $LocalCandidate = Join-Path $RepoRoot "np3f-local.yaml"
 $LogPath = Join-Path $BuildDir "NP3F_SPLAT_EXTRACT.log"
 
