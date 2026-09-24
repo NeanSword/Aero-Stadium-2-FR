@@ -123,6 +123,17 @@ def build_segment_proposal(
                 delta = int(left["best_delta"])
                 new_start = old_start + delta
                 source = "inferred_same_delta"
+            elif (
+                left is not None
+                and right is None
+                and seg_type in {"data", "rodata", "bin"}
+            ):
+                candidate_delta = int(left["best_delta"])
+                candidate_start = old_start + candidate_delta
+                if candidate_start < seg_end:
+                    delta = candidate_delta
+                    new_start = candidate_start
+                    source = "inferred_tail_delta"
 
         proposals.append(
             {
@@ -179,7 +190,13 @@ def build_segment_proposal(
             item["source"] == "direct_anchor" for item in changes
         ),
         "inferred_changes": sum(
+            str(item["source"]).startswith("inferred_") for item in changes
+        ),
+        "same_delta_inferred_changes": sum(
             item["source"] == "inferred_same_delta" for item in changes
+        ),
+        "tail_inferred_changes": sum(
+            item["source"] == "inferred_tail_delta" for item in changes
         ),
         "proposals": proposals,
     }
@@ -404,6 +421,14 @@ def main() -> int:
         ),
         "inferred_changes": sum(
             item.get("inferred_changes", 0)
+            for item in applied_segments
+        ),
+        "same_delta_inferred_changes": sum(
+            item.get("same_delta_inferred_changes", 0)
+            for item in applied_segments
+        ),
+        "tail_inferred_changes": sum(
+            item.get("tail_inferred_changes", 0)
             for item in applied_segments
         ),
     }
