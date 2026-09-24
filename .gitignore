@@ -5,6 +5,9 @@ baseroms/*/baserom.z64
 *.v64
 *.rom
 
+# Local candidate files
+np3f-local.yaml
+
 # Generated build/extraction output
 build/
 dist/
