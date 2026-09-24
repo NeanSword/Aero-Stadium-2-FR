@@ -19,6 +19,8 @@ $OutputYaml = if ([string]::IsNullOrWhiteSpace($CandidateYaml)) {
     $CandidateYaml
 }
 $ApplicationReport = Join-Path $RepoRoot "build\np3f\analysis\relocation_application.json"
+$SplatLog = Join-Path $RepoRoot "build\NP3F_SPLAT_EXTRACT.log"
+$HintsReport = Join-Path $RepoRoot "build\np3f\analysis\splat_hints.json"
 
 if (-not (Test-Path -LiteralPath $RelocationPath -PathType Leaf)) {
     throw "Relocation report not found: $RelocationPath"
@@ -52,4 +54,27 @@ if ($DisassembleAll) {
 }
 
 & (Join-Path $PSScriptRoot "run_np3f_extract.ps1") @RunArgs
-exit $LASTEXITCODE
+$ExtractExit = $LASTEXITCODE
+if ($ExtractExit -ne 0) {
+    exit $ExtractExit
+}
+
+Write-Host ""
+Write-Host "Extracting Splat rodata hints..."
+
+Push-Location $RepoRoot
+try {
+    python .\tools\np3f\extract_splat_hints.py --log "$SplatLog" --output "$HintsReport"
+    $HintsExit = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+
+if ($HintsExit -ne 0) {
+    exit $HintsExit
+}
+
+Write-Host ""
+Write-Host "Relocation report: $ApplicationReport"
+Write-Host "Splat hint report: $HintsReport"
+exit 0
