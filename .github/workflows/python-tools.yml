@@ -35,5 +35,11 @@ jobs:
       - name: Validate full NP3F Splat map
         run: python tools/np3f/validate_candidate_yaml.py yamls/fr/splat.yaml
 
+      - name: Validate Splat hint parser
+        run: |
+          python tools/np3f/extract_splat_hints.py --log tests/fixtures/np3f_splat_hints.sample.log --output /tmp/np3f_splat_hints.json
+          python -m json.tool /tmp/np3f_splat_hints.json >/dev/null
+          python -c "import json; d=json.load(open('/tmp/np3f_splat_hints.json')); assert d['summary']['fragment_rodata_candidates'] == 1; assert d['summary']['text_rodata_ownership_hints'] == 1"
+
       - name: Validate ROM verifier syntax
         run: python -m py_compile tools/verify_np3f_rom.py
