@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Verify that a local ROM matches the expected NP3F reference."""
+"""Verify a local N64 dump against the expected NP3F ROM identity."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 from pathlib import Path
+
+from np3f.n64rom import detect_byte_order, normalize_to_z64
 
 EXPECTED = {
     "size": 67_108_864,
@@ -15,12 +17,8 @@ EXPECTED = {
 }
 
 
-def digest(path: Path, algorithm: str) -> str:
-    h = hashlib.new(algorithm)
-    with path.open("rb") as f:
-        for block in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(block)
-    return h.hexdigest()
+def digest(data: bytes, algorithm: str) -> str:
+    return hashlib.new(algorithm, data).hexdigest()
 
 
 def main() -> int:
@@ -32,27 +30,32 @@ def main() -> int:
         print(f"ERROR: ROM not found: {args.rom}")
         return 2
 
-    size = args.rom.stat().st_size
-    md5 = digest(args.rom, "md5")
-    sha1 = digest(args.rom, "sha1")
-    sha256 = digest(args.rom, "sha256")
+    raw = args.rom.read_bytes()
 
-    print(f"size   : {size}")
-    print(f"md5    : {md5}")
-    print(f"sha1   : {sha1}")
-    print(f"sha256 : {sha256}")
+    try:
+        byte_order = detect_byte_order(args.rom)
+        normalized = normalize_to_z64(raw, byte_order)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 2
+
+    print(f"size       : {len(raw)}")
+    print(f"byte order : {byte_order}")
+    print(f"md5        : {digest(normalized, 'md5')}")
+    print(f"sha1       : {digest(normalized, 'sha1')}")
+    print(f"sha256     : {digest(normalized, 'sha256')}")
 
     checks = [
-        ("size", size, EXPECTED["size"]),
-        ("md5", md5.lower(), EXPECTED["md5"]),
-        ("sha1", sha1.lower(), EXPECTED["sha1"]),
-        ("sha256", sha256.lower(), EXPECTED["sha256"]),
+        ("size", len(normalized), EXPECTED["size"]),
+        ("md5", digest(normalized, "md5"), EXPECTED["md5"]),
+        ("sha1", digest(normalized, "sha1"), EXPECTED["sha1"]),
+        ("sha256", digest(normalized, "sha256"), EXPECTED["sha256"]),
     ]
 
     failed = False
     for name, actual, expected in checks:
         ok = actual == expected
-        print(f"{name:6}: {'OK' if ok else 'FAIL'}")
+        print(f"{name:10}: {'OK' if ok else 'FAIL'}")
         failed |= not ok
 
     return 1 if failed else 0
