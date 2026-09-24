@@ -32,5 +32,8 @@ jobs:
       - name: Validate NP3F candidate parser
         run: python tools/np3f/validate_candidate_yaml.py tests/fixtures/np3f_candidate.sample.yaml
 
+      - name: Validate full NP3F Splat map
+        run: python tools/np3f/validate_candidate_yaml.py yamls/fr/splat.yaml
+
       - name: Validate ROM verifier syntax
         run: python -m py_compile tools/verify_np3f_rom.py
