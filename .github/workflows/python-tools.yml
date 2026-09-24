@@ -1,0 +1,28 @@
+name: Validate Python tools
+
+on:
+  push:
+    branches: ["main", "codex/**"]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Compile Python modules
+        run: python -m compileall -q tools
+
+      - name: Validate JSON configuration
+        run: python -m json.tool config/np3f.json >/dev/null && python -m json.tool config/np3f_fragments.json >/dev/null
+
+      - name: Validate ROM verifier syntax
+        run: python -m py_compile tools/verify_np3f_rom.py

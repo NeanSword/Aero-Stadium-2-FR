@@ -1,42 +1,75 @@
 # Aero-Stadium-2-FR
 
-Projet de reconstruction et de portage Windows natif de **Pokémon Stadium 2 – région française NP3F**.
+Reconstruction et futur portage Windows natif de **Pokémon Stadium 2 – région française NP3F**.
 
-## Objectif
+## Ce dépôt
 
-Construire progressivement une version PC native à partir de la reconstruction N64 et des travaux de reverse engineering associés, puis préparer :
+Le projet sépare volontairement trois couches :
 
-- une exécution native Windows x64 ;
-- un rendu moderne avec fréquence d'affichage indépendante de la logique de jeu ;
-- la localisation française NP3F ;
-- des outils de développement et de débogage reproductibles sous Windows ;
-- à terme, une architecture permettant d'étudier le multijoueur en ligne.
+1. **reconstruction NP3F** : retrouver une représentation exploitable du binaire français ;
+2. **recompilation native** : produire du C/C++ natif à partir de métadonnées/ELF stables ;
+3. **runtime Windows moderne** : entrées, audio, rendu et cadence de présentation indépendants de la logique de jeu.
 
-## Principe de stockage
+La reconstruction publique de référence est [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs), incluse ici comme sous-module et épinglée sur le commit utilisé pendant notre analyse NP3F.
 
-La ROM originale, les dumps complets et les fichiers binaires extraits du jeu ne sont **pas** stockés dans ce dépôt.
+## ROM française requise
 
-Le dépôt contient le code, les outils, la documentation, les métadonnées de vérification et les scripts nécessaires pour reproduire les étapes avec une copie locale légitime de la ROM.
+La ROM française n'est pas distribuée dans ce dépôt.
+
+Tu dois fournir **ta propre copie légale** de la région NP3F et la placer localement ici :
+
+    baseroms/fr/baserom.z64
+
+Consulte [docs/ROM_SETUP_FR.md](docs/ROM_SETUP_FR.md) pour la procédure et les vérifications.
+
+Le dump est volontairement ignoré par Git.
+
+## Mise en place
+
+Après clonage :
+
+    git submodule update --init --recursive
+
+Puis, avec Python installé :
+
+    python tools/verify_np3f_rom.py baseroms/fr/baserom.z64
+
+Pour une vérification Windows :
+
+    .\windows\verify_np3f.ps1
+
+## Outils NP3F
+
+Comparer deux ROMs après normalisation automatique de l'ordre des octets :
+
+    python tools/np3f/compare_roms.py chemin\vers\us.n64 chemin\vers\fr.v64 --min-run 4096
+
+Relocaliser un offset US lorsque le fragment concerné est connu :
+
+    python tools/np3f/relocate_offset.py 31 0x0277B4
+
+Les deltas actuellement connus sont documentés dans [config/np3f_fragments.json](config/np3f_fragments.json).
 
 ## État actuel
 
-Le point de départ technique est le projet public `pret/pokestadiumgs`, une reconstruction WIP de Pokémon Stadium 2 pour les régions US/JP.
+La cartographie NP3F établie pendant l'analyse précédente couvre 88 fragments. Les bases VRAM observées restent alignées avec la référence US, tandis que les offsets ROM se déplacent par plages cumulatives.
 
-La ROM française étudiée localement est la région **NP3F**. Les analyses déjà réalisées montrent que les bases VRAM des 88 fragments étudiés restent alignées avec l'US, tandis que les offsets ROM français se décalent par plages cumulatives.
+Un premier ensemble de correspondances de fonctions et d'ancres a aussi été établi. Ces correspondances restent des **candidats de reconstruction** jusqu'à validation par désassemblage et build.
 
-## Organisation
+Voir [docs/NP3F_MAPPING.md](docs/NP3F_MAPPING.md).
 
-```
-docs/       Notes techniques et décisions
-tools/      Outils reproductibles
-windows/    Workflow Windows
-config/     Métadonnées du projet
-```
+## Windows
 
-## Règle de travail
+Le dépôt upstream actuel utilise un Makefile qui rejette explicitement les builds natifs Windows. Aero-Stadium-2-FR conserve donc son propre workflow Windows au lieu de masquer cette différence derrière des scripts fragiles.
 
-GitHub est la source de vérité du projet. Les archives ZIP ne sont créées que lorsqu'un transfert vers une machine de test Windows est réellement nécessaire.
+Le but final est une application Windows x64 native ; la reconstruction N64 et la couche de runtime restent des étapes séparées.
 
-## Avertissement
+## Règles de dépôt
 
-Pokémon Stadium 2 et ses éléments originaux restent la propriété de leurs ayants droit. Ce dépôt vise les travaux de développement et de reverse engineering autour d'une copie fournie par l'utilisateur.
+Les ROMs complètes, dumps et sorties binaires générées à partir de la copie personnelle de l'utilisateur ne sont pas stockés dans Git.
+
+Le dépôt contient le code, les outils, les métadonnées, les cartes de relocation et la documentation nécessaires au développement.
+
+## Licence et ayants droit
+
+Les fichiers du projet upstream restent soumis à leurs conditions propres via le sous-module. Pokémon Stadium 2 et ses éléments originaux restent la propriété de leurs ayants droit.
