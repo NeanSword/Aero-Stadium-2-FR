@@ -1,0 +1,6 @@
+Rodata segment 'A23F0' may belong to the text segment 'dp_intro'
+    Based on the usage from the function func_800016B4 to the symbol D_800A1910
+
+Data segment fragments/31/fragment31_data, symbol at vram 88233CE0 is a jumptable, indicating the start of the rodata section _may_ be near here.
+Please note the real start of the rodata section may be way before this point.
+      - [0x1A6F60, rodata]
