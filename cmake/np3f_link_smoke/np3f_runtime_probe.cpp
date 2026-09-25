@@ -40,7 +40,7 @@ ultramodern::renderer::WindowHandle create_window(void*) {
     wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     wc.lpfnWndProc = probe_window_proc;
     wc.hInstance = GetModuleHandleW(nullptr);
-    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
     wc.lpszClassName = kClassName;
 
     RegisterClassExW(&wc);
