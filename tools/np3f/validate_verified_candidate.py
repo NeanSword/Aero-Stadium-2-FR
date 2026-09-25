@@ -132,6 +132,26 @@ def main() -> int:
             "ERROR: relocation report does not contain a subsegments list."
         )
 
+    override_payload = json.loads(
+        args.overrides.read_text(encoding="utf-8")
+    )
+    verified_headers = override_payload.get("headers")
+    if not isinstance(verified_headers, dict):
+        raise SystemExit(
+            "ERROR: verified override report does not contain headers."
+        )
+
+    internal_raw = override_payload.get("verified_internal_starts", {})
+    verified_internal_keys: set[tuple[str, int]] = set()
+    if isinstance(internal_raw, dict):
+        for verified_segment, entries in internal_raw.items():
+            if not isinstance(entries, dict):
+                continue
+            for verified_index in entries:
+                verified_internal_keys.add(
+                    (str(verified_segment), int(verified_index))
+                )
+
     direct_checks: list[dict[str, Any]] = []
     unresolved_code: list[dict[str, Any]] = []
 
@@ -173,7 +193,7 @@ def main() -> int:
                     ),
                 }
             )
-        elif str(actual.get("type")) in {"c", "asm", "hasm", "lib"}:
+        elif str(actual.get("type")) in {"c", "asm", "hasm", "lib"} and key not in verified_internal_keys:
             unresolved_code.append(
                 {
                     "segment": segment,
@@ -191,15 +211,6 @@ def main() -> int:
                 }
             )
 
-    override_payload = json.loads(
-        args.overrides.read_text(encoding="utf-8")
-    )
-    verified_headers = override_payload.get("headers")
-    if not isinstance(verified_headers, dict):
-        raise SystemExit(
-            "ERROR: verified override report does not contain headers."
-        )
-
     header_checks: list[dict[str, Any]] = []
     for segment, expected_raw in verified_headers.items():
         expected = int(expected_raw)
@@ -213,7 +224,6 @@ def main() -> int:
             }
         )
 
-    internal_raw = override_payload.get("verified_internal_starts", {})
     internal_checks: list[dict[str, Any]] = []
     if isinstance(internal_raw, dict):
         for segment, entries in internal_raw.items():
@@ -270,6 +280,7 @@ def main() -> int:
             direct_mismatches
             or header_mismatches
             or internal_mismatches
+            or unresolved_code
             or len(candidate_headers) != 88
         ),
     }
