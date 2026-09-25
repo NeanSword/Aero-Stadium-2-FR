@@ -43,6 +43,88 @@ def parse_int(value: Any) -> int:
     return value if isinstance(value, int) else int(str(value), 0)
 
 
+RSP_CPU_EXCLUDED_SUBSEGMENTS = {"pre_main"}
+
+
+def collect_cpu_exclusions(
+    config: dict[str, Any],
+) -> list[dict[str, Any]]:
+    exclusions: list[dict[str, Any]] = []
+    segments = config.get("segments")
+    if not isinstance(segments, list):
+        return exclusions
+
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+
+        seg_name = str(segment.get("name", ""))
+        if seg_name != "text":
+            continue
+
+        if "start" not in segment or "vram" not in segment:
+            continue
+
+        seg_rom = parse_int(segment["start"])
+        seg_vram = parse_int(segment["vram"])
+        subsegments = segment.get("subsegments")
+        if not isinstance(subsegments, list):
+            continue
+
+        linear: list[tuple[int, list[Any]]] = []
+        for subsegment in subsegments:
+            if (
+                isinstance(subsegment, list)
+                and len(subsegment) >= 2
+                and isinstance(subsegment[0], (int, str))
+            ):
+                try:
+                    linear.append((parse_int(subsegment[0]), subsegment))
+                except (TypeError, ValueError):
+                    pass
+
+        linear.sort(key=lambda item: item[0])
+
+        for index, (start_rom, subsegment) in enumerate(linear):
+            sub_name = str(subsegment[2]) if len(subsegment) >= 3 else ""
+            if sub_name not in RSP_CPU_EXCLUDED_SUBSEGMENTS:
+                continue
+
+            if index + 1 >= len(linear):
+                continue
+
+            end_rom = linear[index + 1][0]
+            start_vram = seg_vram + (start_rom - seg_rom)
+            end_vram = seg_vram + (end_rom - seg_rom)
+
+            exclusions.append(
+                {
+                    "name": sub_name,
+                    "reason": "rsp_microcode_not_cpu_code",
+                    "rom_start": start_rom,
+                    "rom_end": end_rom,
+                    "vram_start": start_vram,
+                    "vram_end": end_vram,
+                }
+            )
+
+    return exclusions
+
+
+def function_hits_exclusion(
+    func: Function,
+    exclusions: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    func_end = func.vram + func.size
+    for exclusion in exclusions:
+        if (
+            func.vram < int(exclusion["vram_end"])
+            and func_end > int(exclusion["vram_start"])
+        ):
+            return exclusion
+    return None
+
+
 def collect_sections(config: dict[str, Any]) -> dict[str, CodeSection]:
     segments = config.get("segments")
     if not isinstance(segments, list):
@@ -176,6 +258,8 @@ def main() -> int:
         raise SystemExit("ERROR: canonical YAML root is not a mapping.")
 
     sections = collect_sections(config)
+    cpu_exclusions = collect_cpu_exclusions(config)
+
     asm_files = sorted(args.asm_root.rglob("*.s"))
     if not asm_files:
         raise SystemExit("ERROR: no assembly files found. Run extraction with -DisassembleAll.")
@@ -202,6 +286,21 @@ def main() -> int:
     rejected: list[dict[str, Any]] = []
 
     for func in funcs:
+        exclusion = function_hits_exclusion(func, cpu_exclusions)
+        if exclusion is not None:
+            rejected.append(
+                {
+                    "path": func.asm_path,
+                    "name": func.original_name,
+                    "section": func.section,
+                    "vram": func.vram,
+                    "size": func.size,
+                    "reason": "excluded_rsp_microcode",
+                    "excluded_subsegment": exclusion["name"],
+                }
+            )
+            continue
+
         section = sections.get(func.section)
         if section is None:
             rejected.append({"path": func.asm_path, "name": func.original_name, "reason": "unknown_section"})
@@ -297,6 +396,11 @@ def main() -> int:
         "duplicate_function_names": sorted(name for name, count in name_counts.items() if count > 1),
         "clipped_overlapping_functions": clipped,
         "rejected_functions": rejected,
+        "cpu_exclusions": cpu_exclusions,
+        "rsp_microcode_functions_excluded": sum(
+            item.get("reason") == "excluded_rsp_microcode"
+            for item in rejected
+        ),
         "asm_files_without_function_labels": files_without_funcs,
         "per_section": {name: len(by_section[name]) for name in sections},
     }
@@ -307,6 +411,17 @@ def main() -> int:
     print(f"  functions emitted        : {len(valid)}")
     print(f"  sections with functions : {report['sections_with_functions']} / {len(sections)}")
     print(f"  rejected functions       : {len(rejected)}")
+    print(
+        "  RSP functions excluded   : "
+        f"{report['rsp_microcode_functions_excluded']}"
+    )
+    for exclusion in cpu_exclusions:
+        print(
+            "    - "
+            f"{exclusion['name']}: "
+            f"ROM 0x{exclusion['rom_start']:X}-0x{exclusion['rom_end']:X}, "
+            f"VRAM 0x{exclusion['vram_start']:08X}-0x{exclusion['vram_end']:08X}"
+        )
     print(f"  symbol map               : {args.output}")
     print(f"  report                   : {args.report}")
     return 0
