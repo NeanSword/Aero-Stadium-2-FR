@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.9"
+GENERATOR_VERSION = "2026-09-25.10"
 
 try:
     import yaml
@@ -93,9 +93,17 @@ KNOWN_NP3F_FUNCTION_SIZES: dict[tuple[str, int], int] = {
 # Executable helpers that begin after an inline-data gap and therefore may not
 # receive a standalone glabel in Splat's symbol-clean disassembly.
 KNOWN_NP3F_MANUAL_FUNCTIONS: dict[tuple[str, int], tuple[str, int]] = {
+    # src/unk_220C0.s is a hand-written US source referenced by the NP3F YAML
+    # but is not emitted under build/np3f/asm by Splat. Its embedded address
+    # comments therefore never reach the normal assembly scan. The whole block
+    # is relocated by -0x60 in NP3F; define the verified executable entries
+    # explicitly so N64Recomp does not invent oversized static functions.
+    ("text", 0x80021460): ("func_80021460", 0xEC),
+    ("text", 0x80021554): ("func_80021554", 0xB4),
     # Continuation/helper after the 0x80021608..0x80021610 inline table.
     # It runs through the delay slot at 0x800217D0; the next glabel is 0x800217D4.
     ("text", 0x80021610): ("func_80021610", 0x1C4),
+    ("text", 0x800217D4): ("func_800217D4", 0x28C),
 }
 
 
