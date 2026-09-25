@@ -362,6 +362,9 @@ def patch_yaml_text(
             output.append(line)
             continue
 
+        if in_subsegments and re.match(r"^  - ", line):
+            in_subsegments = False
+
         if in_subsegments:
             match = SUBSEGMENT_LINE_RE.match(line)
             if match:
@@ -377,9 +380,6 @@ def patch_yaml_text(
                 sub_index += 1
                 output.append(line)
                 continue
-
-            if re.match(r"^  - ", line):
-                in_subsegments = False
 
         if old_tail is not None and new_tail is not None:
             tail_match = re.match(
