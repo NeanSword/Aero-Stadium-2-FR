@@ -10,6 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include "recomp.h"
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
@@ -321,11 +322,19 @@ void runtime_message_box(const char* msg) {
 
 namespace aerostadium2 {
 
-void trace_np3f_on_init(uint8_t*, recomp_context* ctx) {
+void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx) {
+    constexpr gpr kOsTvType = 0x80000300u;
+    constexpr int32_t kOsTvPal = 0;
+
+    const int32_t runtime_tv_type = MEM_W(0, kOsTvType);
+    MEM_W(0, kOsTvType) = kOsTvPal;
+
     std::printf(
-        "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X\n",
+        "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X osTvType=%d -> %d (PAL)\n",
         static_cast<unsigned>(ctx->r29),
-        static_cast<unsigned>(ctx->r31)
+        static_cast<unsigned>(ctx->r31),
+        runtime_tv_type,
+        MEM_W(0, kOsTvType)
     );
     std::fflush(stdout);
 }
