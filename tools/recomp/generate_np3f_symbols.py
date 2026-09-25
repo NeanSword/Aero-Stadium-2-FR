@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.7"
+GENERATOR_VERSION = "2026-09-25.8"
 
 try:
     import yaml
@@ -810,6 +810,13 @@ def main() -> int:
             preceding = func
 
         if preceding is None:
+            continue
+
+        # A verified hand-written function boundary can be followed by inline
+        # literal data that spimdisasm emits as an unlabeled code chunk. Do not
+        # merge that chunk back into a function whose executable size was
+        # explicitly verified above.
+        if (preceding.section, preceding.vram) in KNOWN_NP3F_FUNCTION_SIZES:
             continue
 
         current_end = preceding.vram + preceding.size
