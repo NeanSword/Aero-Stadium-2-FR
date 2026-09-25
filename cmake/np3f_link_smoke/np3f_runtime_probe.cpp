@@ -21,6 +21,7 @@ std::atomic_bool g_logged_rsp_task = false;
 std::atomic_uint32_t g_created_thread_count = 0;
 std::atomic_bool g_entrypoint_started = false;
 std::atomic_bool g_entrypoint_returned = false;
+std::atomic<uint8_t*> g_rdram = nullptr;
 
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
@@ -132,10 +133,11 @@ public:
 };
 
 std::unique_ptr<ultramodern::renderer::RendererContext> create_render_context(
-    uint8_t*,
+    uint8_t* rdram,
     ultramodern::renderer::WindowHandle,
     bool
 ) {
+    g_rdram.store(rdram);
     std::printf("[runtime-probe] Renderer factice initialise.\n");
     return std::make_unique<ProbeRendererContext>();
 }
@@ -199,6 +201,40 @@ ultramodern::input::connected_device_info_t get_connected_device_info(int contro
         .connected_device = ultramodern::input::Device::None,
         .connected_pak = ultramodern::input::Pak::None,
     };
+}
+
+void print_thread_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
+    const PTR(OSThread) addr = static_cast<int32_t>(vaddr);
+    const OSThread* thread = TO_PTR(OSThread, addr);
+
+    std::printf(
+        "[boot-snapshot] %-11s addr=0x%08X id=%d pri=%d state=%u sp=0x%08X queue=0x%08X context=%p\n",
+        label,
+        vaddr,
+        thread->id,
+        thread->priority,
+        static_cast<unsigned>(thread->state),
+        static_cast<unsigned>(thread->sp),
+        static_cast<unsigned>(thread->queue),
+        static_cast<void*>(thread->context)
+    );
+}
+
+void print_boot_snapshot() {
+    uint8_t* rdram = g_rdram.load();
+    if (rdram == nullptr) {
+        std::printf("[boot-snapshot] RDRAM indisponible.\n");
+        return;
+    }
+
+    std::printf("[boot-snapshot] Structures OSThread NP3F apres 3 secondes:\n");
+    print_thread_snapshot(rdram, 0x800A82A0u, "idle/id1");
+    print_thread_snapshot(rdram, 0x800D05D0u, "crash/id2");
+    print_thread_snapshot(rdram, 0x800CE190u, "rsp/id20");
+    print_thread_snapshot(rdram, 0x800CD040u, "thread/id3");
+    print_thread_snapshot(rdram, 0x80122B40u, "thread/id4");
+    print_thread_snapshot(rdram, 0x800CDA80u, "thread/id21");
+    print_thread_snapshot(rdram, 0x800A8850u, "game/id6");
 }
 
 void runtime_message_box(const char* msg) {
@@ -317,6 +353,22 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
     cfg.error_handling_callbacks = error_callbacks;
 
     std::printf("[runtime-probe] Demarrage du CPU recompile NP3F...\n");
+    std::thread boot_watchdog([]() {
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(3s);
+        std::printf(
+            "[cpu-trace] Watchdog 3s: entrypoint=%s retour=%s threads_executes=%u rsp=%s displaylist=%s\n",
+            g_entrypoint_started.load() ? "oui" : "non",
+            g_entrypoint_returned.load() ? "oui" : "non",
+            g_created_thread_count.load(),
+            g_logged_rsp_task.load() ? "oui" : "non",
+            g_logged_display_list.load() ? "oui" : "non"
+        );
+        print_boot_snapshot();
+        std::fflush(stdout);
+    });
+    boot_watchdog.detach();
+
     recomp::start_game(game_id, "");
     recomp::start(cfg);
     std::printf("[runtime-probe] N64ModernRuntime termine.\n");
