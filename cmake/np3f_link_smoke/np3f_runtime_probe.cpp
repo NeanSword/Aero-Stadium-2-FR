@@ -26,6 +26,48 @@ std::atomic_bool g_entrypoint_started = false;
 std::atomic_bool g_entrypoint_returned = false;
 std::atomic<uint8_t*> g_rdram = nullptr;
 
+LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
+    if (info == nullptr || info->ExceptionRecord == nullptr) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    const EXCEPTION_RECORD* record = info->ExceptionRecord;
+    const uintptr_t module_base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    const uintptr_t exception_address = reinterpret_cast<uintptr_t>(record->ExceptionAddress);
+    const uintptr_t exception_rva =
+        exception_address >= module_base ? exception_address - module_base : 0;
+
+    std::fprintf(
+        stderr,
+        "[win-crash] code=0x%08lX address=%p module_base=%p rva=0x%llX\n",
+        record->ExceptionCode,
+        record->ExceptionAddress,
+        reinterpret_cast<void*>(module_base),
+        static_cast<unsigned long long>(exception_rva)
+    );
+
+    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+        record->NumberParameters >= 2) {
+        const char* operation = "inconnue";
+        switch (record->ExceptionInformation[0]) {
+            case 0: operation = "lecture"; break;
+            case 1: operation = "ecriture"; break;
+            case 8: operation = "execution"; break;
+            default: break;
+        }
+
+        std::fprintf(
+            stderr,
+            "[win-crash] access_violation operation=%s target=0x%llX\n",
+            operation,
+            static_cast<unsigned long long>(record->ExceptionInformation[1])
+        );
+    }
+
+    std::fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CLOSE:
@@ -395,6 +437,7 @@ void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
 }
 
 void run_np3f_runtime_probe(const std::u8string& game_id) {
+    SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
     const recomp::rsp::callbacks_t rsp_callbacks{
         .get_rsp_microcode = get_rsp_microcode,
     };
