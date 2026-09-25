@@ -75,6 +75,14 @@ target_link_libraries(AeroStadium2 PRIVATE
     ${N64MODERNRUNTIME_LIBS}
 )
 
+if(WIN32)
+    target_link_libraries(AeroStadium2 PRIVATE
+        comdlg32
+        shell32
+        ole32
+    )
+endif()
+
 if(MSVC)
     target_compile_definitions(AeroStadium2 PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
     target_link_options(AeroStadium2 PRIVATE "/WHOLEARCHIVE:${NP3F_GENERATED_LIB}")
