@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdio.h>
 #include "recomp.h"
 
 // Pokemon Stadium 2 FR uses KSEG1 aliases of main RDRAM in a few runtime
@@ -51,3 +52,27 @@ static inline gpr aerostadium2_np3f_normalize_rdram_alias(gpr address) {
     *(uint32_t*)(rdram + ((aerostadium2_np3f_sd_addr + 4) - 0xFFFFFFFF80000000ULL)) = (uint32_t)((gpr)(val) >> 0); \
     *(uint32_t*)(rdram + ((aerostadium2_np3f_sd_addr + 0) - 0xFFFFFFFF80000000ULL)) = (uint32_t)((gpr)(val) >> 32); \
 }
+
+
+static inline recomp_func_t* aerostadium2_np3f_lookup_func(gpr target, recomp_context* ctx) {
+    const int32_t target32 = (int32_t)target;
+
+    if (target32 == (int32_t)0x80145230) {
+        fprintf(
+            stderr,
+            "[lookup-trace] target=0x%08X ra=0x%08X sp=0x%08X a0=0x%08X a1=0x%08X\n",
+            (uint32_t)target32,
+            (uint32_t)ctx->r31,
+            (uint32_t)ctx->r29,
+            (uint32_t)ctx->r4,
+            (uint32_t)ctx->r5
+        );
+        fflush(stderr);
+    }
+
+    return get_function(target32);
+}
+
+#undef LOOKUP_FUNC
+#define LOOKUP_FUNC(val) \
+    aerostadium2_np3f_lookup_func((val), ctx)
