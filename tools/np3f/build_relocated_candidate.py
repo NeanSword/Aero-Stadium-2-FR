@@ -250,7 +250,7 @@ def patch_yaml_text(
     banner = [
         "# GENERATED CANDIDATE - do not treat as the canonical NP3F map yet.",
         "# Built from exact NP3F/NP3E relocation anchors.",
-        "# Source: yamls/fr/splat.yaml",
+        "# Source: yamls/fr/splat.seed.yaml",
         "",
     ]
     return "\n".join(banner + output) + "\n"
@@ -266,7 +266,7 @@ def main() -> int:
     parser.add_argument(
         "--yaml",
         type=Path,
-        default=Path("yamls/fr/splat.yaml"),
+        default=Path("yamls/fr/splat.seed.yaml"),
     )
     parser.add_argument(
         "--relocations",
