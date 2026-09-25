@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-25.2"
+$RunnerVersion = "2026-09-25.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -13,6 +13,10 @@ $SymbolReport = Join-Path $RepoRoot "build\np3f\analysis\recomp_symbols_report.j
 $Config = Join-Path $RepoRoot "recomp\np3f.toml"
 $Log = Join-Path $RepoRoot "build\NP3F_N64RECOMP.log"
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
+$RecompYaml = Join-Path $RepoRoot "build\np3f\recomp\splat.recomp.yaml"
+$AsmDir = Join-Path $RepoRoot "build\np3f\asm"
+$SrcDir = Join-Path $RepoRoot "build\np3f\src"
+$CleanExtractStamp = Join-Path $RepoRoot "build\np3f\recomp\.np3f-symbol-clean-extract-v1"
 
 Write-Host "=== Aero-Stadium-2-FR / first NP3F N64Recomp pass ==="
 Write-Host "Runner version: $RunnerVersion"
@@ -23,14 +27,49 @@ if (-not (Test-Path -LiteralPath $RecompExe -PathType Leaf)) {
 }
 
 if (-not $SkipExtract) {
-    Write-Host "[1/3] Regenerating canonical Splat output with full disassembly..."
-    & (Join-Path $PSScriptRoot "run_np3f_extract.ps1") -DisassembleAll
+    Write-Host "[1/3] Regenerating NP3F Splat output for recompilation..."
+    Write-Host "      Stale NP3E code symbols are removed for this pass."
+
+    Push-Location $RepoRoot
+    try {
+        python .\tools\recomp\build_np3f_recomp_yaml.py --input .\yamls\fr\splat.yaml --output $RecompYaml
+        $RecompYamlExit = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+
+    if ($RecompYamlExit -ne 0) {
+        exit $RecompYamlExit
+    }
+
+    foreach ($GeneratedPath in @($AsmDir, $SrcDir)) {
+        if (Test-Path -LiteralPath $GeneratedPath) {
+            Write-Host "Removing stale Splat output: $GeneratedPath"
+            Remove-Item -LiteralPath $GeneratedPath -Recurse -Force
+        }
+    }
+
+    Remove-Item -LiteralPath $CleanExtractStamp -Force -ErrorAction SilentlyContinue
+
+    & (Join-Path $PSScriptRoot "run_np3f_extract.ps1") -CandidateYaml $RecompYaml -DisassembleAll
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $CleanExtractStamp) | Out-Null
+    "NP3F symbol-clean Splat extraction completed." | Set-Content -LiteralPath $CleanExtractStamp -Encoding ASCII
 }
 else {
-    Write-Host "[1/3] Reusing existing Splat disassembly (-SkipExtract)."
+    if (-not (Test-Path -LiteralPath $CleanExtractStamp -PathType Leaf)) {
+        throw @"
+-SkipExtract cannot be used with the current build output.
+
+The recompilation pass now requires a fresh Splat extraction without stale
+NP3E code symbols. Run this script once without -SkipExtract.
+"@
+    }
+
+    Write-Host "[1/3] Reusing symbol-clean NP3F Splat disassembly (-SkipExtract)."
 }
 
 Write-Host ""
