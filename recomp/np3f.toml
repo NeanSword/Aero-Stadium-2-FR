@@ -22,6 +22,11 @@ stubs = ["set_watch_lohi"]
 # static function, including inline literal tables. Replace each idiom with
 # an explicit LUI/ORI pair that materializes the same PC+8 value in $ra.
 instruction = [
+    # func_80064CC0 reads PI_STATUS_REG directly at 0xA4600010.
+    # N64ModernRuntime models osPiGetStatus() as 0 (PI idle), so replace the
+    # direct MMIO load with "addiu $t7, $zero, 0".
+    { func = "func_80064CC0", vram = 0x80064CD8, value = 0x240F0000 },
+
     { func = "func_80021460", vram = 0x80021470, value = 0x3C1F8002 },
     { func = "func_80021460", vram = 0x80021474, value = 0x37FF1478 },
 
