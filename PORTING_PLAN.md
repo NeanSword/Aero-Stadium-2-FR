@@ -5,22 +5,23 @@
 - [x] Créer le dépôt de travail.
 - [x] Documenter la cible NP3F.
 - [x] Conserver la ROM hors du dépôt.
-- [ ] Établir un bootstrap Windows reproductible.
-- [ ] Ajouter la vérification automatique du hash ROM.
-- [ ] Établir une base de build/reconstruction NP3F.
+- [x] Établir un bootstrap Windows reproductible.
+- [x] Ajouter la vérification automatique du hash ROM.
+- [x] Établir une base de build/reconstruction NP3F.
 
 ## Phase 1 — Reconstruction NP3F
 
-- [ ] Stabiliser la cartographie ROM/VRAM.
-- [ ] Produire les YAML NP3F indépendamment des données US.
+- [x] Stabiliser la cartographie ROM des 88 fragments et des frontières de code.
+- [ ] Valider indépendamment les VRAM encore marquées `guessed`.
+- [x] Produire un YAML NP3F canonique vérifié, avec seed historique séparé.
 - [ ] Intégrer progressivement les fonctions et données françaises.
 - [ ] Mesurer les divergences fonctionnelles par rapport à l'US.
 - [ ] Obtenir une reconstruction NP3F bit-identique lorsque cela est pertinent.
 
 ## Phase 2 — Recompilation native
 
-- [ ] Préparer la chaîne N64Recomp.
-- [ ] Générer les sorties C/C++ de recompilation.
+- [ ] Valider localement le bootstrap N64Recomp sans Git.
+- [ ] Générer la première sortie C N64Recomp à partir de NP3F ROM + symboles Splat.
 - [ ] Isoler les interfaces runtime.
 - [ ] Produire une première cible Windows x64.
 
