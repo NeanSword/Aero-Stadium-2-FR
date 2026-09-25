@@ -56,6 +56,7 @@ endforeach()
 add_executable(AeroStadium2
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_compat.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_register_overlays.cpp"
 )
 
 target_include_directories(AeroStadium2 PRIVATE
