@@ -1,0 +1,75 @@
+#include <cstdint>
+
+#include "recomp.h"
+#include "librecomp/addresses.hpp"
+#include "librecomp/game.hpp"
+#include "librecomp/helpers.hpp"
+
+namespace {
+
+constexpr s32 kPfsErrNoPack = 1;
+
+constexpr uint32_t k1_to_phys(uint32_t addr) {
+    return addr & 0x1FFFFFFFU;
+}
+
+void return_no_pack(recomp_context* ctx) {
+    _return<s32>(ctx, kPfsErrNoPack);
+}
+
+} // namespace
+
+// N64ModernRuntime already models the high-level Controller Pak API as
+// "no accessory present". NP3F's libultra build also references these
+// lower-level variants, so preserve the same behavior for the link/runtime
+// compatibility layer. Transfer Pak support will replace these stubs later.
+extern "C" void __osContRamRead_recomp(uint8_t*, recomp_context* ctx) {
+    return_no_pack(ctx);
+}
+
+extern "C" void __osContRamWrite_recomp(uint8_t*, recomp_context* ctx) {
+    return_no_pack(ctx);
+}
+
+extern "C" void __osPfsGetStatus_recomp(uint8_t*, recomp_context* ctx) {
+    return_no_pack(ctx);
+}
+
+extern "C" void osPfsIsPlug_recomp(uint8_t* rdram, recomp_context* ctx) {
+    // libultra reports connected Controller Paks through the output bitmask,
+    // while the function itself can still return success when no Pak exists.
+    if (ctx->r5 != 0) {
+        PTR(u8) pattern = _arg<1, PTR(u8)>(rdram, ctx);
+        MEM_B(0, pattern) = 0;
+    }
+    _return<s32>(ctx, 0);
+}
+
+// The debug/exception helper is only used to query the emulated CPU cause
+// register. Until exception forwarding is required, report no pending cause.
+extern "C" void __osGetCause_recomp(uint8_t*, recomp_context* ctx) {
+    _return<u32>(ctx, 0);
+}
+
+// NP3F references the non-handle PI PIO wrapper. Mirror the ROM-read path
+// already implemented by N64ModernRuntime's osEPiReadIo_recomp.
+extern "C" void osPiReadIo_recomp(uint8_t* rdram, recomp_context* ctx) {
+    const uint32_t dev_addr = recomp::rom_base | static_cast<uint32_t>(ctx->r4);
+    const gpr dram_addr = ctx->r5;
+    const uint32_t physical_addr = k1_to_phys(dev_addr);
+
+    if (physical_addr >= recomp::rom_base) {
+        recomp::do_rom_pio(rdram, dram_addr, physical_addr);
+    }
+
+    _return<s32>(ctx, 0);
+}
+
+// NP3F's initialization path references osPiWriteIo. N64ModernRuntime has no
+// generic cart PIO-write backend yet. Keep this as an explicit successful
+// no-op for the bootstrap; if runtime tracing shows a meaningful device write,
+// replace this shim with device-specific behavior rather than silently
+// modifying the upstream runtime.
+extern "C" void osPiWriteIo_recomp(uint8_t*, recomp_context* ctx) {
+    _return<s32>(ctx, 0);
+}
