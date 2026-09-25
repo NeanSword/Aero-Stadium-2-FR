@@ -31,6 +31,7 @@ US_LIBULTRA_ROM_START = 0x746D0
 US_LIBULTRA_ROM_END = 0x85DA0
 US_TEXT_ROM_START = 0x1000
 US_TEXT_VRAM_START = 0x80000400
+ROM_DEFAULT_PATH = Path("baseroms/fr/baserom.z64")
 
 
 @dataclass
@@ -461,6 +462,106 @@ def parse_unlabeled_code_chunk(
     )
 
 
+def read_be_u32(data: bytes, offset: int) -> int:
+    if offset < 0 or offset + 4 > len(data):
+        raise ValueError(f"ROM read out of range at 0x{offset:X}")
+    return int.from_bytes(data[offset:offset + 4], "big")
+
+
+def inject_missing_leaf_jal_targets(
+    rom: bytes,
+    sections: dict[str, CodeSection],
+    funcs: list[Function],
+) -> list[dict[str, Any]]:
+    # Some tiny hand-written helpers are valid jal targets but are absent from
+    # upstream symbol files and may not receive a glabel from Splat. Only
+    # auto-inject the safest pattern: a missing target in main text whose first
+    # instruction is exactly "jr ra". Such helpers are 2-instruction leaf
+    # thunks (jr ra + delay slot), so an 8-byte extent is unambiguous.
+    text = sections["text"]
+    text_start = text.vram
+    text_end = text.vram + text.size
+
+    starts = {(func.section, func.vram) for func in funcs}
+    discovered: dict[int, dict[str, Any]] = {}
+
+    for func in list(funcs):
+        section = sections.get(func.section)
+        if section is None:
+            continue
+
+        func_rom = section.rom + (func.vram - section.vram)
+        for index in range(0, func.size, 4):
+            rom_offset = func_rom + index
+            if rom_offset + 4 > len(rom):
+                break
+
+            word = read_be_u32(rom, rom_offset)
+            opcode = (word >> 26) & 0x3F
+            if opcode != 0x03:  # jal
+                continue
+
+            pc = (func.vram + index) & 0xFFFFFFFF
+            target = ((pc + 4) & 0xF0000000) | ((word & 0x03FFFFFF) << 2)
+
+            if not (text_start <= target < text_end):
+                continue
+            if ("text", target) in starts:
+                continue
+
+            target_rom = text.rom + (target - text.vram)
+            if target_rom + 8 > len(rom):
+                continue
+
+            first_word = read_be_u32(rom, target_rom)
+            if first_word != 0x03E00008:  # jr ra
+                continue
+
+            delay_word = read_be_u32(rom, target_rom + 4)
+            discovered.setdefault(
+                target,
+                {
+                    "vram": target,
+                    "rom": target_rom,
+                    "first_word": first_word,
+                    "delay_word": delay_word,
+                    "called_from": [],
+                },
+            )
+            discovered[target]["called_from"].append(
+                {
+                    "function": func.original_name,
+                    "section": func.section,
+                    "jal_vram": pc,
+                }
+            )
+
+    injected: list[dict[str, Any]] = []
+    for target in sorted(discovered):
+        item = discovered[target]
+        name = f"func_{target:08X}"
+        funcs.append(
+            Function(
+                original_name=name,
+                name=name,
+                vram=target,
+                size=8,
+                asm_path=f"auto-leaf-jal-target:{name}",
+                section="text",
+            )
+        )
+        starts.add(("text", target))
+        injected.append(
+            {
+                "name": name,
+                **item,
+                "size": 8,
+            }
+        )
+
+    return injected
+
+
 def toml_quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -477,6 +578,11 @@ def main() -> int:
         type=Path,
         default=Path("config/np3f_libultra_symbols_us.json"),
     )
+    parser.add_argument(
+        "--rom",
+        type=Path,
+        default=ROM_DEFAULT_PATH,
+    )
     args = parser.parse_args()
 
     if not args.yaml.is_file():
@@ -490,6 +596,10 @@ def main() -> int:
     config = yaml.safe_load(args.yaml.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise SystemExit("ERROR: canonical YAML root is not a mapping.")
+
+    if not args.rom.is_file():
+        raise SystemExit(f"ERROR: NP3F ROM not found: {args.rom}")
+    rom_bytes = args.rom.read_bytes()
 
     sections = collect_sections(config)
     cpu_exclusions = collect_cpu_exclusions(config)
@@ -665,6 +775,12 @@ def main() -> int:
         path for path in files_without_funcs if path not in merged_paths
     ]
 
+    injected_leaf_jal_targets = inject_missing_leaf_jal_targets(
+        rom_bytes,
+        sections,
+        valid,
+    )
+
     name_counts = Counter(func.original_name for func in valid)
     used_names: set[str] = set()
 
@@ -769,6 +885,7 @@ def main() -> int:
         },
         "relocated_libultra_symbols": relocated_libultra_applied,
         "merged_unlabeled_code_chunks": merged_unlabeled_code_chunks,
+        "injected_leaf_jal_targets": injected_leaf_jal_targets,
         "rejected_functions": rejected,
         "cpu_exclusions": cpu_exclusions,
         "rsp_microcode_functions_excluded": sum(
@@ -797,6 +914,14 @@ def main() -> int:
         f"{sum(item['action'] == 'renamed_existing' for item in relocated_libultra_applied)}"
     )
     print(f"  merged code continuations: {len(merged_unlabeled_code_chunks)}")
+    print(f"  injected leaf jal funcs  : {len(injected_leaf_jal_targets)}")
+    for leaf in injected_leaf_jal_targets:
+        print(
+            "    - "
+            f"0x{leaf['vram']:08X} "
+            f"(delay 0x{leaf['delay_word']:08X}, "
+            f"callers {len(leaf['called_from'])})"
+        )
     for continuation in merged_unlabeled_code_chunks:
         print(
             "    - "
