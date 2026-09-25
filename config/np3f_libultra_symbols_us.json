@@ -8,7 +8,7 @@
   "us_libultra_rom_end": "0x85DA0",
   "us_libultra_vram_start": "0x80073AD0",
   "us_libultra_vram_end": "0x800851A0",
-  "symbol_count": 282,
+  "symbol_count": 283,
   "symbols": [
     {
       "name": "osSendMesg",
@@ -609,6 +609,10 @@
     {
       "name": "guRotateRPYF",
       "us_vram": "0x8007D310"
+    },
+    {
+      "name": "guRotateRPY",
+      "us_vram": "0x8007D454"
     },
     {
       "name": "_bcmp",
