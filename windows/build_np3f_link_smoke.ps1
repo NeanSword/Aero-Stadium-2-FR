@@ -2,14 +2,15 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-25.3"
+$RunnerVersion = "2026-09-25.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
 $SmokeBuildDir = Join-Path $RepoRoot "build\np3f\generated-smoke-vs2022-x64"
 $RuntimeSource = Join-Path $RepoRoot ".local\n64modernruntime\src"
+$RuntimeBuild = Join-Path $RepoRoot ".local\n64modernruntime\build-vs2022-x64"
 $CMakeSource = Join-Path $RepoRoot "cmake\np3f_link_smoke"
-$BuildDir = Join-Path $RepoRoot "build\np3f\link-smoke-vs2022-x64"
+$BuildDir = Join-Path $RepoRoot "build\np3f\link-smoke-prebuilt-vs2022-x64"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
 $ConfigureLog = Join-Path $LogDir "NP3F_LINK_SMOKE_CONFIGURE.log"
 $ConfigureStdoutLog = Join-Path $LogDir "NP3F_LINK_SMOKE_CONFIGURE.stdout.log"
@@ -38,6 +39,7 @@ $RuntimeSourceCMake = $RuntimeSource.Replace("\", "/")
 
 Write-Host "Generated NP3F library : $($GeneratedLib.FullName)"
 Write-Host "Runtime source         : $RuntimeSource"
+Write-Host "Runtime prebuilt libs  : $RuntimeBuild"
 Write-Host ""
 Write-Host "[1/2] Configuring first AeroStadium2.exe link..."
 $ConfigureArgumentLine = '-S "{0}" -B "{1}" -G "Visual Studio 17 2022" -A x64 -DNP3F_GENERATED_LIB="{2}" -DNP3F_GENERATED_DIR="{3}" -DN64MODERNRUNTIME_SOURCE_DIR="{4}"' -f $CMakeSource,$BuildDir,$GeneratedLibCMake,$GeneratedDirCMake,$RuntimeSourceCMake
@@ -47,6 +49,7 @@ try {
         "-DNP3F_GENERATED_LIB=$GeneratedLibCMake" `
         "-DNP3F_GENERATED_DIR=$GeneratedDirCMake" `
         "-DN64MODERNRUNTIME_SOURCE_DIR=$RuntimeSourceCMake" `
+        "-DN64MODERNRUNTIME_BUILD_DIR=$RuntimeBuildCMake" `
         1> $ConfigureStdoutLog 2> $ConfigureStderrLog
     $ConfigureExit = $LASTEXITCODE
 }
