@@ -5,6 +5,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+$BootstrapVersion = "2026-09-25.3"
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64recomp"
 $SourceDir = Join-Path $LocalRoot "src"
@@ -70,6 +72,7 @@ function Install-GitHubArchive {
 }
 
 Write-Host "=== Aero-Stadium-2-FR / N64Recomp bootstrap ==="
+Write-Host "Bootstrap version: $BootstrapVersion"
 Write-Host "Pinned N64Recomp commit: $N64RecompCommit"
 Write-Host ""
 
