@@ -45,6 +45,16 @@ def parse_int(value: Any) -> int:
 
 RSP_CPU_EXCLUDED_SUBSEGMENTS = {"pre_main"}
 
+# Verified NP3F names for tiny hand-written assembly helpers whose upstream
+# NP3E names were intentionally removed from the recompilation Splat pass.
+# The NP3F exception_set subsegment is ROM 0xC280..0xC2A0:
+#   0x8000B680 -> set_watch_lohi
+#   0x8000B690 -> trigger_fault
+KNOWN_NP3F_FUNCTION_NAMES: dict[tuple[str, int], str] = {
+    ("text", 0x8000B680): "set_watch_lohi",
+    ("text", 0x8000B690): "trigger_fault",
+}
+
 
 def collect_cpu_exclusions(
     config: dict[str, Any],
@@ -329,12 +339,26 @@ def main() -> int:
     name_counts = Counter(func.original_name for func in valid)
     used_names: set[str] = set()
 
+    verified_name_overrides: list[dict[str, Any]] = []
+
     for func in sorted(valid, key=lambda x: (x.section, x.vram, x.original_name)):
-        candidate = sanitize_c_identifier(
-            func.original_name
-            if name_counts[func.original_name] == 1
-            else f"{func.section}__{func.original_name}"
-        )
+        verified_name = KNOWN_NP3F_FUNCTION_NAMES.get((func.section, func.vram))
+        if verified_name is not None:
+            candidate = sanitize_c_identifier(verified_name)
+            verified_name_overrides.append(
+                {
+                    "section": func.section,
+                    "vram": func.vram,
+                    "detected_name": func.original_name,
+                    "verified_name": verified_name,
+                }
+            )
+        else:
+            candidate = sanitize_c_identifier(
+                func.original_name
+                if name_counts[func.original_name] == 1
+                else f"{func.section}__{func.original_name}"
+            )
         base = candidate
         serial = 2
         while candidate in used_names:
@@ -395,6 +419,7 @@ def main() -> int:
         "expected_sections": len(sections),
         "duplicate_function_names": sorted(name for name, count in name_counts.items() if count > 1),
         "clipped_overlapping_functions": clipped,
+        "verified_name_overrides": verified_name_overrides,
         "rejected_functions": rejected,
         "cpu_exclusions": cpu_exclusions,
         "rsp_microcode_functions_excluded": sum(
@@ -411,6 +436,13 @@ def main() -> int:
     print(f"  functions emitted        : {len(valid)}")
     print(f"  sections with functions : {report['sections_with_functions']} / {len(sections)}")
     print(f"  rejected functions       : {len(rejected)}")
+    print(f"  verified name overrides  : {len(verified_name_overrides)}")
+    for override in verified_name_overrides:
+        print(
+            "    - "
+            f"0x{override['vram']:08X}: "
+            f"{override['detected_name']} -> {override['verified_name']}"
+        )
     print(
         "  RSP functions excluded   : "
         f"{report['rsp_microcode_functions_excluded']}"
