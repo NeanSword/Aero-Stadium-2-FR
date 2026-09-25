@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.5"
+$BootstrapVersion = "2026-09-25.6"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -167,26 +167,37 @@ endif()
     }
 }
 
-# o1heap requires ISO C99 or newer and checks __STDC_VERSION__. MSVC does not
-# enable a modern C language mode by default, so compile only this C source as
-# C17. Visual Studio 2022 supports /std:c17.
+# o1heap requires ISO C99 or newer and checks __STDC_VERSION__. Use CMake's
+# native C language-standard selection for the entire librecomp subproject so
+# Visual Studio emits /std:c17 for C translation units (currently o1heap.c).
 $LibrecompCMake = Join-Path $SourceDir "librecomp\CMakeLists.txt"
 $LibrecompText = Get-Content -LiteralPath $LibrecompCMake -Raw
-$O1HeapMarker = "# Aero-Stadium-2-FR MSVC o1heap C17 compatibility"
-$O1HeapPatch = @"
+$C17Marker = "# Aero-Stadium-2-FR librecomp C17 compatibility"
 
-# Aero-Stadium-2-FR MSVC o1heap C17 compatibility
-if (MSVC)
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/o1heap/o1heap/o1heap.c"
-        PROPERTIES COMPILE_OPTIONS "/std:c17"
-    )
-endif()
+if (-not $LibrecompText.Contains($C17Marker)) {
+    $CxxStandardBlock = @"
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_EXTENSIONS OFF)
+"@
+    $C17Block = @"
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Aero-Stadium-2-FR librecomp C17 compatibility
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED True)
+set(CMAKE_C_EXTENSIONS OFF)
 "@
 
-if (-not $LibrecompText.Contains($O1HeapMarker)) {
-    Add-Content -LiteralPath $LibrecompCMake -Value $O1HeapPatch -Encoding UTF8
-    Write-Host "Applied MSVC C17 compatibility patch: o1heap.c"
+    if (-not $LibrecompText.Contains($CxxStandardBlock)) {
+        throw "Could not find librecomp language-standard block in $LibrecompCMake"
+    }
+
+    $LibrecompText = $LibrecompText.Replace($CxxStandardBlock, $C17Block)
+    Set-Content -LiteralPath $LibrecompCMake -Value $LibrecompText -Encoding UTF8
+    Write-Host "Applied CMake C17 compatibility patch: librecomp"
 }
 
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
