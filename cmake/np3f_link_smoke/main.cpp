@@ -11,7 +11,7 @@
 #include "recomp.h"
 #include "librecomp/game.hpp"
 
-namespace aerostadium2 { void register_np3f_overlays(); }
+namespace aerostadium2 {\nvoid register_np3f_overlays();\nvoid run_np3f_runtime_probe(const std::u8string& game_id);\n}
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
