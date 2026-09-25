@@ -1,0 +1,930 @@
+{
+  "status": "verified-executable-boundaries",
+  "method": "NP3E-to-NP3F direct MIPS structural matching; I-type immediates and J targets ignored for structural scoring, exact words retained as secondary evidence.",
+  "scope": "top-level text executable subsegments only; data/rodata relocation remains a separate task",
+  "source_rom": "NP3E normalized reference",
+  "target_rom": "NP3F",
+  "key_observation": {
+    "old_boundary": "0x3A00",
+    "new_boundary": "0x39D0",
+    "effect": "prevents func_80002DD0 from being truncated before its branch target at VRAM 0x80002E04"
+  },
+  "libultra_delta_bytes": 288,
+  "changed_boundaries": [
+    {
+      "old": "0X746D0",
+      "new": "0x747F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X74820",
+      "new": "0x74940",
+      "type": "lib"
+    },
+    {
+      "old": "0X748E0",
+      "new": "0x74A00",
+      "type": "lib"
+    },
+    {
+      "old": "0X74A20",
+      "new": "0x74B40",
+      "type": "lib"
+    },
+    {
+      "old": "0X74AC0",
+      "new": "0x74BE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X74B70",
+      "new": "0x74C90",
+      "type": "lib"
+    },
+    {
+      "old": "0X74D30",
+      "new": "0x74E50",
+      "type": "lib"
+    },
+    {
+      "old": "0X74FF0",
+      "new": "0x75110",
+      "type": "lib"
+    },
+    {
+      "old": "0X75100",
+      "new": "0x75220",
+      "type": "lib"
+    },
+    {
+      "old": "0X753C0",
+      "new": "0x754E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X76190",
+      "new": "0x762B0",
+      "type": "lib"
+    },
+    {
+      "old": "0X761D0",
+      "new": "0x762F0",
+      "type": "pad"
+    },
+    {
+      "old": "0X761E0",
+      "new": "0x76300",
+      "type": "lib"
+    },
+    {
+      "old": "0X76230",
+      "new": "0x76350",
+      "type": "lib"
+    },
+    {
+      "old": "0X762D0",
+      "new": "0x763F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X76760",
+      "new": "0x76880",
+      "type": "lib"
+    },
+    {
+      "old": "0X76870",
+      "new": "0x76990",
+      "type": "lib"
+    },
+    {
+      "old": "0X76B50",
+      "new": "0x76C70",
+      "type": "lib"
+    },
+    {
+      "old": "0X76C10",
+      "new": "0x76D30",
+      "type": "lib"
+    },
+    {
+      "old": "0X76D60",
+      "new": "0x76E80",
+      "type": "lib"
+    },
+    {
+      "old": "0X77120",
+      "new": "0x77240",
+      "type": "lib"
+    },
+    {
+      "old": "0X771B0",
+      "new": "0x772D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X77670",
+      "new": "0x77790",
+      "type": "lib"
+    },
+    {
+      "old": "0X77C20",
+      "new": "0x77D40",
+      "type": "lib"
+    },
+    {
+      "old": "0X77C60",
+      "new": "0x77D80",
+      "type": "lib"
+    },
+    {
+      "old": "0X77D20",
+      "new": "0x77E40",
+      "type": "pad"
+    },
+    {
+      "old": "0X77D80",
+      "new": "0x77EA0",
+      "type": "lib"
+    },
+    {
+      "old": "0X77F10",
+      "new": "0x78030",
+      "type": "lib"
+    },
+    {
+      "old": "0X77FA0",
+      "new": "0x780C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78180",
+      "new": "0x782A0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78210",
+      "new": "0x78330",
+      "type": "lib"
+    },
+    {
+      "old": "0X78290",
+      "new": "0x783B0",
+      "type": "lib"
+    },
+    {
+      "old": "0X782A0",
+      "new": "0x783C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X782B0",
+      "new": "0x783D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78330",
+      "new": "0x78450",
+      "type": "lib"
+    },
+    {
+      "old": "0X78560",
+      "new": "0x78680",
+      "type": "lib"
+    },
+    {
+      "old": "0X78790",
+      "new": "0x788B0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78A20",
+      "new": "0x78B40",
+      "type": "lib"
+    },
+    {
+      "old": "0X78AB0",
+      "new": "0x78BD0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78B60",
+      "new": "0x78C80",
+      "type": "lib"
+    },
+    {
+      "old": "0X78BB0",
+      "new": "0x78CD0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78EC0",
+      "new": "0x78FE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78F30",
+      "new": "0x79050",
+      "type": "lib"
+    },
+    {
+      "old": "0X78F80",
+      "new": "0x790A0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78FD0",
+      "new": "0x790F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X78FF0",
+      "new": "0x79110",
+      "type": "lib"
+    },
+    {
+      "old": "0X794C0",
+      "new": "0x795E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X79510",
+      "new": "0x79630",
+      "type": "lib"
+    },
+    {
+      "old": "0X795E0",
+      "new": "0x79700",
+      "type": "lib"
+    },
+    {
+      "old": "0X79640",
+      "new": "0x79760",
+      "type": "lib"
+    },
+    {
+      "old": "0X796B0",
+      "new": "0x797D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X79750",
+      "new": "0x79870",
+      "type": "lib"
+    },
+    {
+      "old": "0X798D0",
+      "new": "0x799F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X799C0",
+      "new": "0x79AE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X79A90",
+      "new": "0x79BB0",
+      "type": "lib"
+    },
+    {
+      "old": "0X79D80",
+      "new": "0x79EA0",
+      "type": "lib"
+    },
+    {
+      "old": "0X79E40",
+      "new": "0x79F60",
+      "type": "lib"
+    },
+    {
+      "old": "0X7A0E0",
+      "new": "0x7A200",
+      "type": "lib"
+    },
+    {
+      "old": "0X7A4F0",
+      "new": "0x7A610",
+      "type": "lib"
+    },
+    {
+      "old": "0X7A5C0",
+      "new": "0x7A6E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7A5D0",
+      "new": "0x7A6F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7A650",
+      "new": "0x7A770",
+      "type": "lib"
+    },
+    {
+      "old": "0X7AA70",
+      "new": "0x7AB90",
+      "type": "lib"
+    },
+    {
+      "old": "0X7ACD0",
+      "new": "0x7ADF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7AD60",
+      "new": "0x7AE80",
+      "type": "lib"
+    },
+    {
+      "old": "0X7AE80",
+      "new": "0x7AFA0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BA00",
+      "new": "0x7BB20",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BAC0",
+      "new": "0x7BBE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BAD0",
+      "new": "0x7BBF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BAF0",
+      "new": "0x7BC10",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BBA0",
+      "new": "0x7BCC0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7BBD0",
+      "new": "0x7BCF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7C8B0",
+      "new": "0x7C9D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CA30",
+      "new": "0x7CB50",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CAB0",
+      "new": "0x7CBD0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CB00",
+      "new": "0x7CC20",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CBA0",
+      "new": "0x7CCC0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CC60",
+      "new": "0x7CD80",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CD00",
+      "new": "0x7CE20",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CD30",
+      "new": "0x7CE50",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CDE0",
+      "new": "0x7CF00",
+      "type": "lib"
+    },
+    {
+      "old": "0X7CE60",
+      "new": "0x7CF80",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D060",
+      "new": "0x7D180",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D520",
+      "new": "0x7D640",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D630",
+      "new": "0x7D750",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D660",
+      "new": "0x7D780",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D690",
+      "new": "0x7D7B0",
+      "type": "pad"
+    },
+    {
+      "old": "0X7D6A0",
+      "new": "0x7D7C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D6F0",
+      "new": "0x7D810",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D840",
+      "new": "0x7D960",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D920",
+      "new": "0x7DA40",
+      "type": "lib"
+    },
+    {
+      "old": "0X7D940",
+      "new": "0x7DA60",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DAA0",
+      "new": "0x7DBC0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DAF0",
+      "new": "0x7DC10",
+      "type": "pad"
+    },
+    {
+      "old": "0X7DB00",
+      "new": "0x7DC20",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DBF0",
+      "new": "0x7DD10",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DC50",
+      "new": "0x7DD70",
+      "type": "pad"
+    },
+    {
+      "old": "0X7DC60",
+      "new": "0x7DD80",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DCD0",
+      "new": "0x7DDF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DEB0",
+      "new": "0x7DFD0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7DF10",
+      "new": "0x7E030",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E0A0",
+      "new": "0x7E1C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E1C0",
+      "new": "0x7E2E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E250",
+      "new": "0x7E370",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E750",
+      "new": "0x7E870",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E920",
+      "new": "0x7EA40",
+      "type": "lib"
+    },
+    {
+      "old": "0X7E970",
+      "new": "0x7EA90",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EAC0",
+      "new": "0x7EBE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EB00",
+      "new": "0x7EC20",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EB10",
+      "new": "0x7EC30",
+      "type": "pad"
+    },
+    {
+      "old": "0X7EB20",
+      "new": "0x7EC40",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EB80",
+      "new": "0x7ECA0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EB90",
+      "new": "0x7ECB0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EBA0",
+      "new": "0x7ECC0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EBB0",
+      "new": "0x7ECD0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EEC0",
+      "new": "0x7EFE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7EF20",
+      "new": "0x7F040",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F0E0",
+      "new": "0x7F200",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F170",
+      "new": "0x7F290",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F290",
+      "new": "0x7F3B0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F590",
+      "new": "0x7F6B0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F5C0",
+      "new": "0x7F6E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F730",
+      "new": "0x7F850",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F780",
+      "new": "0x7F8A0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7F8E0",
+      "new": "0x7FA00",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FA40",
+      "new": "0x7FB60",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FA70",
+      "new": "0x7FB90",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FAC0",
+      "new": "0x7FBE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FB20",
+      "new": "0x7FC40",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FDE0",
+      "new": "0x7FF00",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FE70",
+      "new": "0x7FF90",
+      "type": "lib"
+    },
+    {
+      "old": "0X7FFD0",
+      "new": "0x800F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X80280",
+      "new": "0x803A0",
+      "type": "lib"
+    },
+    {
+      "old": "0X80320",
+      "new": "0x80440",
+      "type": "lib"
+    },
+    {
+      "old": "0X80C30",
+      "new": "0x80D50",
+      "type": "pad"
+    },
+    {
+      "old": "0X80C40",
+      "new": "0x80D60",
+      "type": "lib"
+    },
+    {
+      "old": "0X81040",
+      "new": "0x81160",
+      "type": "lib"
+    },
+    {
+      "old": "0X81AB0",
+      "new": "0x81BD0",
+      "type": "pad"
+    },
+    {
+      "old": "0X81AC0",
+      "new": "0x81BE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X81C50",
+      "new": "0x81D70",
+      "type": "lib"
+    },
+    {
+      "old": "0X81CF0",
+      "new": "0x81E10",
+      "type": "lib"
+    },
+    {
+      "old": "0X827D0",
+      "new": "0x828F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X82820",
+      "new": "0x82940",
+      "type": "lib"
+    },
+    {
+      "old": "0X83420",
+      "new": "0x83540",
+      "type": "lib"
+    },
+    {
+      "old": "0X834A0",
+      "new": "0x835C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X834B0",
+      "new": "0x835D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X834C0",
+      "new": "0x835E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X83510",
+      "new": "0x83630",
+      "type": "lib"
+    },
+    {
+      "old": "0X83550",
+      "new": "0x83670",
+      "type": "lib"
+    },
+    {
+      "old": "0X835B0",
+      "new": "0x836D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X83600",
+      "new": "0x83720",
+      "type": "lib"
+    },
+    {
+      "old": "0X836D0",
+      "new": "0x837F0",
+      "type": "lib"
+    },
+    {
+      "old": "0X83920",
+      "new": "0x83A40",
+      "type": "lib"
+    },
+    {
+      "old": "0X83B50",
+      "new": "0x83C70",
+      "type": "lib"
+    },
+    {
+      "old": "0X83CC0",
+      "new": "0x83DE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X83CD0",
+      "new": "0x83DF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X83E30",
+      "new": "0x83F50",
+      "type": "lib"
+    },
+    {
+      "old": "0X83FC0",
+      "new": "0x840E0",
+      "type": "lib"
+    },
+    {
+      "old": "0X84AD0",
+      "new": "0x84BF0",
+      "type": "lib"
+    },
+    {
+      "old": "0X84C60",
+      "new": "0x84D80",
+      "type": "lib"
+    },
+    {
+      "old": "0X84F00",
+      "new": "0x85020",
+      "type": "lib"
+    },
+    {
+      "old": "0X84F50",
+      "new": "0x85070",
+      "type": "lib"
+    },
+    {
+      "old": "0X84FA0",
+      "new": "0x850C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X84FF0",
+      "new": "0x85110",
+      "type": "lib"
+    },
+    {
+      "old": "0X85000",
+      "new": "0x85120",
+      "type": "lib"
+    },
+    {
+      "old": "0X85010",
+      "new": "0x85130",
+      "type": "pad"
+    },
+    {
+      "old": "0X85020",
+      "new": "0x85140",
+      "type": "lib"
+    },
+    {
+      "old": "0X85330",
+      "new": "0x85450",
+      "type": "lib"
+    },
+    {
+      "old": "0X85340",
+      "new": "0x85460",
+      "type": "lib"
+    },
+    {
+      "old": "0X85370",
+      "new": "0x85490",
+      "type": "pad"
+    },
+    {
+      "old": "0X85380",
+      "new": "0x854A0",
+      "type": "lib"
+    },
+    {
+      "old": "0X853F0",
+      "new": "0x85510",
+      "type": "lib"
+    },
+    {
+      "old": "0X85540",
+      "new": "0x85660",
+      "type": "lib"
+    },
+    {
+      "old": "0X85650",
+      "new": "0x85770",
+      "type": "lib"
+    },
+    {
+      "old": "0X856A0",
+      "new": "0x857C0",
+      "type": "lib"
+    },
+    {
+      "old": "0X858B0",
+      "new": "0x859D0",
+      "type": "lib"
+    },
+    {
+      "old": "0X85A80",
+      "new": "0x85BA0",
+      "type": "lib"
+    },
+    {
+      "old": "0X85B50",
+      "new": "0x85C70",
+      "type": "lib"
+    },
+    {
+      "old": "0X85B90",
+      "new": "0x85CB0",
+      "type": "lib"
+    },
+    {
+      "old": "0X85BC0",
+      "new": "0x85CE0",
+      "type": "lib"
+    },
+    {
+      "old": "0X85D60",
+      "new": "0x85E80",
+      "type": "lib"
+    },
+    {
+      "old": "0X85D90",
+      "new": "0x85EB0",
+      "type": "lib"
+    },
+    {
+      "old": "0X85DA0",
+      "new": "0x85EC0",
+      "type": "data"
+    }
+  ]
+}
