@@ -45,21 +45,14 @@ Write-Host ""
 Push-Location $RepoRoot
 try {
     Write-Host "[1/4] Building segment-relocated candidate..."
-    python .\tools\np3f\build_segment_relocated_candidate.py \`
-        --relocations "$RelocationPath" \`
-        --output "$SegmentYaml" \`
-        --report "$SegmentReport"
+    python .\tools\np3f\build_segment_relocated_candidate.py --relocations "$RelocationPath" --output "$SegmentYaml" --report "$SegmentReport"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 
     Write-Host ""
     Write-Host "[2/4] Applying ROM-verified fragment starts..."
-    python .\tools\np3f\apply_verified_fragment_overrides.py \`
-        --input "$SegmentYaml" \`
-        --rom "$RomPath" \`
-        --output "$VerifiedYaml" \`
-        --report "$VerifiedReport"
+    python .\tools\np3f\apply_verified_fragment_overrides.py --input "$SegmentYaml" --rom "$RomPath" --output "$VerifiedYaml" --report "$VerifiedReport"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -90,9 +83,7 @@ Write-Host "[4/4] Extracting Splat hints..."
 
 Push-Location $RepoRoot
 try {
-    python .\tools\np3f\extract_splat_hints.py \`
-        --log "$SplatLog" \`
-        --output "$HintsReport"
+    python .\tools\np3f\extract_splat_hints.py --log "$SplatLog" --output "$HintsReport"
     $HintsExit = $LASTEXITCODE
 } finally {
     Pop-Location
