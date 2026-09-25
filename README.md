@@ -52,9 +52,16 @@ Les deltas actuellement connus sont documentés dans [config/np3f_fragments.json
 
 ## État actuel
 
-La cartographie NP3F établie pendant l'analyse précédente couvre 88 fragments. Les bases VRAM observées restent alignées avec la référence US, tandis que les offsets ROM se déplacent par plages cumulatives.
+La carte ROM NP3F est maintenant figée dans `yamls/fr/splat.yaml` comme layout canonique vérifié.
 
-Un premier ensemble de correspondances de fonctions et d'ancres a aussi été établi. Ces correspondances restent des **candidats de reconstruction** jusqu'à validation par désassemblage et build.
+- 88/88 en-têtes de fragments correspondent aux signatures `FRAGMENT` observées directement dans NP3F ;
+- 335/335 frontières de code soutenues par des ancres directes NP3E↔NP3F correspondent au layout canonique ;
+- 15 frontières supplémentaires ont été vérifiées explicitement par comparaison binaire ;
+- aucune frontière de code ne reste non résolue dans le validateur de layout.
+
+Le fichier `yamls/fr/splat.seed.yaml` conserve l'ancien layout de reconstruction. Les outils de relocation utilisent ce seed historique afin de pouvoir reproduire l'analyse sans appliquer deux fois les deltas.
+
+Les VRAM marquées `guessed` dans `config/np3f_fragments.json` restent, elles, à valider indépendamment.
 
 Voir [docs/NP3F_MAPPING.md](docs/NP3F_MAPPING.md).
 
