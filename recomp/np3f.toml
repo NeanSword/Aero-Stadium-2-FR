@@ -8,3 +8,10 @@ rom_file_path = "../baseroms/fr/baserom.z64"
 output_func_path = "../generated/recomp/np3f"
 recomp_include = "#include \"recomp.h\""
 functions_per_output_file = 50
+
+# set_watch_lohi writes R4300 CP0 WatchLo/WatchHi. Those hardware watchpoint
+# registers have no direct role in the Windows host and are not supported by
+# the pinned N64Recomp revision. Keep the symbol/call graph, but emit a no-op
+# function for the first static recompilation pass.
+[patches]
+stubs = ["set_watch_lohi"]
