@@ -26,9 +26,28 @@ static inline gpr aerostadium2_np3f_normalize_rdram_alias(gpr address) {
 #define AEROSTADIUM2_NP3F_MEM_ADDR(offset, reg) \
     aerostadium2_np3f_normalize_rdram_alias((gpr)((reg) + (offset)))
 
+static inline int32_t* aerostadium2_np3f_mem_w_ptr(uint8_t* rdram, gpr address) {
+    const uint32_t low = (uint32_t)address;
+
+    // N64ModernRuntime models both status reads as idle/complete:
+    //   AI_STATUS_REG 0xA450000C -> 0 (audio DMA FIFO not full)
+    //   PI_STATUS_REG 0xA4600010 -> 0 (PI DMA/IO not busy)
+    // Writes to these status registers only acknowledge/clear interrupts on
+    // hardware, so treating them as disposable no-ops matches the current
+    // host runtime model as well.
+    if (low == 0xA450000Cu || low == 0xA4600010u) {
+        static int32_t status_dummy = 0;
+        status_dummy = 0;
+        return &status_dummy;
+    }
+
+    const gpr normalized = aerostadium2_np3f_normalize_rdram_alias(address);
+    return (int32_t*)(rdram + (normalized - 0xFFFFFFFF80000000ULL));
+}
+
 #undef MEM_W
 #define MEM_W(offset, reg) \
-    (*(int32_t*)(rdram + (AEROSTADIUM2_NP3F_MEM_ADDR((offset), (reg)) - 0xFFFFFFFF80000000ULL)))
+    (*aerostadium2_np3f_mem_w_ptr(rdram, (gpr)((reg) + (offset))))
 
 #undef MEM_H
 #define MEM_H(offset, reg) \
