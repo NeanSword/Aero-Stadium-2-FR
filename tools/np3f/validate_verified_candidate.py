@@ -19,6 +19,9 @@ except ImportError:
     from build_relocated_candidate import eligible_anchor, parse_int
 
 
+VALIDATOR_VERSION = 2
+
+
 def collect_candidate(config: dict[str, Any]) -> tuple[
     dict[str, int],
     dict[tuple[str, int], dict[str, Any]],
@@ -261,6 +264,7 @@ def main() -> int:
     ]
 
     summary = {
+        "validator_version": VALIDATOR_VERSION,
         "candidate": str(args.candidate),
         "relocations": str(args.relocations),
         "verified_overrides": str(args.overrides),
