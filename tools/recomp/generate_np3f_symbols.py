@@ -39,6 +39,14 @@ class Function:
     section: str
 
 
+@dataclass
+class UnlabeledCodeChunk:
+    path: str
+    section: str
+    start_vram: int
+    end_vram: int
+
+
 def parse_int(value: Any) -> int:
     return value if isinstance(value, int) else int(str(value), 0)
 
@@ -243,6 +251,52 @@ def parse_asm_file(path: Path, section_name: str) -> list[Function]:
     return found
 
 
+def parse_unlabeled_code_chunk(
+    path: Path,
+    section_name: str,
+) -> UnlabeledCodeChunk | None:
+    # Splat can emit extra nonmatchings/*.s files for internal labels used by
+    # jump tables. Those files may contain real instructions but no glabel, so
+    # parse_asm_file() intentionally returns no Function for them.
+    #
+    # Only consider nonmatchings code files here. This prevents data/header
+    # assembly from being mistaken for executable continuations.
+    if "nonmatchings" not in path.parts:
+        return None
+
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+
+    if any(GLABEL_RE.match(line) for line in lines):
+        return None
+
+    vrams: list[int] = []
+    in_text = True
+    saw_section_directive = False
+
+    for line in lines:
+        section_match = SECTION_RE.match(line)
+        if section_match:
+            saw_section_directive = True
+            in_text = ".text" in section_match.group(1)
+            continue
+
+        if in_text or not saw_section_directive:
+            instr_match = INSTR_RE.search(line)
+            if instr_match:
+                vrams.append(int(instr_match.group(2), 16))
+
+    if not vrams:
+        return None
+
+    vrams.sort()
+    return UnlabeledCodeChunk(
+        path=path.as_posix(),
+        section=section_name,
+        start_vram=vrams[0],
+        end_vram=vrams[-1] + 4,
+    )
+
+
 def toml_quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -276,13 +330,18 @@ def main() -> int:
 
     funcs: list[Function] = []
     files_without_funcs: list[str] = []
+    unlabeled_code_chunks: list[UnlabeledCodeChunk] = []
 
     for asm_path in asm_files:
-        parsed = parse_asm_file(asm_path, section_for_asm(asm_path))
+        section_name = section_for_asm(asm_path)
+        parsed = parse_asm_file(asm_path, section_name)
         if parsed:
             funcs.extend(parsed)
         else:
             files_without_funcs.append(asm_path.as_posix())
+            chunk = parse_unlabeled_code_chunk(asm_path, section_name)
+            if chunk is not None:
+                unlabeled_code_chunks.append(chunk)
 
     unique_by_key: dict[tuple[str, int, str], Function] = {}
     for func in funcs:
@@ -335,6 +394,58 @@ def main() -> int:
 
     if not valid:
         raise SystemExit("ERROR: no valid functions recovered from Splat assembly.")
+
+    # Merge unlabeled nonmatchings code chunks into the preceding function when
+    # they are exactly contiguous. Splat emits these for internal jump-table
+    # labels; treating them as separate functions would truncate the parent
+    # function and cause N64Recomp jump-table analysis to fail.
+    merged_unlabeled_code_chunks: list[dict[str, Any]] = []
+
+    funcs_by_section_start: dict[str, list[Function]] = {}
+    for func in valid:
+        funcs_by_section_start.setdefault(func.section, []).append(func)
+
+    for entries in funcs_by_section_start.values():
+        entries.sort(key=lambda x: (x.vram, x.original_name))
+
+    for chunk in sorted(
+        unlabeled_code_chunks,
+        key=lambda x: (x.section, x.start_vram, x.end_vram, x.path),
+    ):
+        entries = funcs_by_section_start.get(chunk.section, [])
+        preceding: Function | None = None
+
+        for func in entries:
+            if func.vram > chunk.start_vram:
+                break
+            preceding = func
+
+        if preceding is None:
+            continue
+
+        current_end = preceding.vram + preceding.size
+        if chunk.start_vram != current_end:
+            continue
+
+        preceding.size = chunk.end_vram - preceding.vram
+        merged_unlabeled_code_chunks.append(
+            {
+                "path": chunk.path,
+                "section": chunk.section,
+                "start_vram": chunk.start_vram,
+                "end_vram": chunk.end_vram,
+                "merged_into": preceding.original_name,
+                "merged_function_vram": preceding.vram,
+                "merged_function_new_size": preceding.size,
+            }
+        )
+
+    merged_paths = {
+        item["path"] for item in merged_unlabeled_code_chunks
+    }
+    files_without_funcs = [
+        path for path in files_without_funcs if path not in merged_paths
+    ]
 
     name_counts = Counter(func.original_name for func in valid)
     used_names: set[str] = set()
@@ -420,6 +531,7 @@ def main() -> int:
         "duplicate_function_names": sorted(name for name, count in name_counts.items() if count > 1),
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
+        "merged_unlabeled_code_chunks": merged_unlabeled_code_chunks,
         "rejected_functions": rejected,
         "cpu_exclusions": cpu_exclusions,
         "rsp_microcode_functions_excluded": sum(
@@ -437,6 +549,14 @@ def main() -> int:
     print(f"  sections with functions : {report['sections_with_functions']} / {len(sections)}")
     print(f"  rejected functions       : {len(rejected)}")
     print(f"  verified name overrides  : {len(verified_name_overrides)}")
+    print(f"  merged code continuations: {len(merged_unlabeled_code_chunks)}")
+    for continuation in merged_unlabeled_code_chunks:
+        print(
+            "    - "
+            f"0x{continuation['start_vram']:08X}-"
+            f"0x{continuation['end_vram']:08X} -> "
+            f"{continuation['merged_into']}"
+        )
     for override in verified_name_overrides:
         print(
             "    - "
