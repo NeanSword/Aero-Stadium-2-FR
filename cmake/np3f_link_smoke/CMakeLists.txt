@@ -86,7 +86,10 @@ endif()
 
 if(MSVC)
     target_compile_definitions(AeroStadium2 PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
-    target_link_options(AeroStadium2 PRIVATE "/WHOLEARCHIVE:${NP3F_GENERATED_LIB}")
+    target_link_options(AeroStadium2 PRIVATE
+        "/WHOLEARCHIVE:${NP3F_GENERATED_LIB}"
+        "/MAP:${CMAKE_BINARY_DIR}/bin/AeroStadium2.map"
+    )
 endif()
 
 set_target_properties(AeroStadium2 PROPERTIES
