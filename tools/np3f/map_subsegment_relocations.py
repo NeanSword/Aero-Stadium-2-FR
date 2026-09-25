@@ -200,7 +200,7 @@ def main() -> int:
     )
     parser.add_argument("--fr", type=Path, default=Path("baseroms/fr/baserom.z64"))
     parser.add_argument("--us", type=Path, required=True)
-    parser.add_argument("--yaml", type=Path, default=Path("yamls/fr/splat.yaml"))
+    parser.add_argument("--yaml", type=Path, default=Path("yamls/fr/splat.seed.yaml"))
     parser.add_argument(
         "--json",
         dest="json_path",
