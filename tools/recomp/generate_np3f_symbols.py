@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+GENERATOR_VERSION = "2026-09-25.4"
+
 try:
     import yaml
 except ImportError as exc:
@@ -464,6 +466,7 @@ def toml_quote(value: str) -> str:
 
 
 def main() -> int:
+    print(f"NP3F symbol generator version: {GENERATOR_VERSION}")
     parser = argparse.ArgumentParser()
     parser.add_argument("--yaml", type=Path, default=Path("yamls/fr/splat.yaml"))
     parser.add_argument("--asm-root", type=Path, default=Path("build/np3f/asm"))
