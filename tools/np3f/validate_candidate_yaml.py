@@ -49,7 +49,12 @@ def load_catalog(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate(candidate: dict[int, dict[str, int]], catalog: dict) -> tuple[list[str], list[str]]:
+def validate(
+    candidate: dict[int, dict[str, int]],
+    catalog: dict,
+    *,
+    allow_relocated_starts: bool = False,
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -57,13 +62,18 @@ def validate(candidate: dict[int, dict[str, int]], catalog: dict) -> tuple[list[
         item["id"]: item for item in catalog.get("fragments", [])
     }
 
-    if len(candidate) != catalog.get("fragment_count"):
+    fragment_count = int(catalog.get("fragment_count", 0))
+
+    if len(candidate) != fragment_count:
         errors.append(
             f"candidate contains {len(candidate)} fragments; "
-            f"expected {catalog.get('fragment_count')}"
+            f"expected {fragment_count}"
         )
 
-    for fragment_id in range(1, int(catalog.get("fragment_count", 0)) + 1):
+    previous_start: int | None = None
+    previous_fragment: int | None = None
+
+    for fragment_id in range(1, fragment_count + 1):
         actual = candidate.get(fragment_id)
         if actual is None:
             errors.append(f"fragment{fragment_id} is missing")
@@ -76,11 +86,31 @@ def validate(candidate: dict[int, dict[str, int]], catalog: dict) -> tuple[list[
 
         if "rom_start" not in actual:
             errors.append(f"fragment{fragment_id} has no start field")
-        elif parse_int(str(ref["rom_start"])) != actual["rom_start"]:
-            errors.append(
-                f"fragment{fragment_id}: start 0x{actual['rom_start']:X} "
-                f"!= catalog 0x{parse_int(str(ref['rom_start'])):X}"
-            )
+        else:
+            actual_start = actual["rom_start"]
+            expected_start = parse_int(str(ref["rom_start"]))
+
+            if not allow_relocated_starts and expected_start != actual_start:
+                errors.append(
+                    f"fragment{fragment_id}: start 0x{actual_start:X} "
+                    f"!= catalog 0x{expected_start:X}"
+                )
+
+            if actual_start & 0xF:
+                errors.append(
+                    f"fragment{fragment_id}: start 0x{actual_start:X} "
+                    "is not 0x10-aligned"
+                )
+
+            if previous_start is not None and actual_start <= previous_start:
+                errors.append(
+                    f"fragment{fragment_id}: start 0x{actual_start:X} "
+                    f"is not after fragment{previous_fragment} "
+                    f"(0x{previous_start:X})"
+                )
+
+            previous_start = actual_start
+            previous_fragment = fragment_id
 
         if "vram" not in actual:
             errors.append(f"fragment{fragment_id} has no vram field")
@@ -107,6 +137,14 @@ def main() -> int:
     )
     parser.add_argument("candidate", type=Path)
     parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
+    parser.add_argument(
+        "--allow-relocated-starts",
+        action="store_true",
+        help=(
+            "Allow fragment ROM starts to differ from the static NP3F catalog. "
+            "Fragment count, ordering/alignment and VRAM values are still validated."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.candidate.is_file():
@@ -117,7 +155,11 @@ def main() -> int:
         return 2
 
     candidate = parse_fragment_headers(args.candidate)
-    errors, warnings = validate(candidate, load_catalog(args.catalog))
+    errors, warnings = validate(
+        candidate,
+        load_catalog(args.catalog),
+        allow_relocated_starts=args.allow_relocated_starts,
+    )
 
     for warning in warnings:
         print(f"WARNING: {warning}")
@@ -127,9 +169,14 @@ def main() -> int:
             print(f"ERROR: {error}")
         return 1
 
+    mode = (
+        "; relocated ROM starts allowed"
+        if args.allow_relocated_starts
+        else ""
+    )
     print(
-        f"NP3F candidate YAML: OK ({len(candidate)} fragments; "
-        f"{len(warnings)} entries require independent VRAM validation)"
+        f"NP3F candidate YAML: OK ({len(candidate)} fragments"
+        f"{mode}; {len(warnings)} entries require independent VRAM validation)"
     )
     return 0
 
