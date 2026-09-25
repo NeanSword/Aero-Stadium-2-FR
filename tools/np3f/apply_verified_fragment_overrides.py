@@ -17,6 +17,8 @@ SUBSEGMENT_RE = re.compile(
 )
 
 VERIFIED_INTERNAL_STARTS: dict[str, dict[int, int]] = {
+    # Header-adjacent or tail boundaries independently verified against
+    # NP3F and the exact NP3E reference ROM.
     "fragment26": {
         1: 0x15E900,
     },
@@ -24,9 +26,15 @@ VERIFIED_INTERNAL_STARTS: dict[str, dict[int, int]] = {
         1: 0x165F10,
         2: 0x166000,
     },
+    "fragment31": {
+        30: 0x1A0440,
+    },
     "fragment36": {
         1: 0x1CEC00,
         2: 0x1D0750,
+    },
+    "fragment45": {
+        5: 0x234B40,
     },
     "fragment71": {
         1: 0x35EDA0,
@@ -35,6 +43,14 @@ VERIFIED_INTERNAL_STARTS: dict[str, dict[int, int]] = {
     "fragment77": {
         1: 0x369580,
         2: 0x36C930,
+    },
+    "fragment79": {
+        15: 0x38F3B0,
+        25: 0x3BEB40,
+        40: 0x3D9E80,
+    },
+    "fragment80": {
+        4: 0x41CDE0,
     },
 }
 
