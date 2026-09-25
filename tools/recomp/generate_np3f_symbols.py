@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.6"
+GENERATOR_VERSION = "2026-09-25.7"
 
 try:
     import yaml
@@ -85,6 +85,17 @@ KNOWN_NP3F_FUNCTION_SIZES: dict[tuple[str, int], int] = {
     # FR ROM 0x22060: executable code ends at VRAM 0x8002154C.
     # The following words C7D7E3E7 F1F3F5F7 are inline data, not CPU code.
     ("text", 0x80021460): 0xEC,
+    # The next hand-written routine ends at 0x80021608, followed by another
+    # 8-byte inline table (0CCD2CCD 53337FFF).
+    ("text", 0x80021554): 0xB4,
+}
+
+# Executable helpers that begin after an inline-data gap and therefore may not
+# receive a standalone glabel in Splat's symbol-clean disassembly.
+KNOWN_NP3F_MANUAL_FUNCTIONS: dict[tuple[str, int], tuple[str, int]] = {
+    # Continuation/helper after the 0x80021608..0x80021610 inline table.
+    # It runs through the delay slot at 0x800217D0; the next glabel is 0x800217D4.
+    ("text", 0x80021610): ("func_80021610", 0x1C4),
 }
 
 
@@ -648,6 +659,31 @@ def main() -> int:
             unique_by_key[key] = func
     funcs = list(unique_by_key.values())
 
+    manual_functions_injected: list[dict[str, Any]] = []
+    known_starts = {(func.section, func.vram) for func in funcs}
+    for (section_name, vram), (name, size) in KNOWN_NP3F_MANUAL_FUNCTIONS.items():
+        if (section_name, vram) in known_starts:
+            continue
+        funcs.append(
+            Function(
+                original_name=name,
+                name=name,
+                vram=vram,
+                size=size,
+                asm_path=f"known-inline-helper:{name}",
+                section=section_name,
+            )
+        )
+        known_starts.add((section_name, vram))
+        manual_functions_injected.append(
+            {
+                "section": section_name,
+                "vram": vram,
+                "name": name,
+                "size": size,
+            }
+        )
+
     valid: list[Function] = []
     rejected: list[dict[str, Any]] = []
     verified_size_overrides: list[dict[str, Any]] = []
@@ -891,6 +927,7 @@ def main() -> int:
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
         "verified_size_overrides": verified_size_overrides,
+        "manual_functions_injected": manual_functions_injected,
         "relocated_libultra": {
             "symbol_table": str(args.libultra_symbols),
             "us_rom_start": US_LIBULTRA_ROM_START,
@@ -936,6 +973,13 @@ def main() -> int:
             f"0x{override['vram']:08X}: "
             f"0x{override['detected_size']:X} -> "
             f"0x{override['verified_size']:X}"
+        )
+    print(f"  manual funcs injected    : {len(manual_functions_injected)}")
+    for manual in manual_functions_injected:
+        print(
+            "    - "
+            f"0x{manual['vram']:08X}: "
+            f"{manual['name']} size 0x{manual['size']:X}"
         )
     print(
         "  relocated libultra funcs : "
