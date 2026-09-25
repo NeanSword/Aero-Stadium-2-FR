@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdio>
 
 #include "recomp.h"
 #include "librecomp/addresses.hpp"
@@ -31,7 +32,11 @@ void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint
     }
 
     const uint32_t rom_offset = physical_addr - recomp::rom_base;
-    const int32_t ram_addr = static_cast<int32_t>(dram_addr);
+    uint32_t ram_low = static_cast<uint32_t>(dram_addr);
+    if (ram_low >= 0xA0000000u && ram_low < 0xA0800000u) {
+        ram_low -= 0x20000000u;
+    }
+    const int32_t ram_addr = static_cast<int32_t>(ram_low);
 
     std::fprintf(
         stderr,
@@ -117,8 +122,11 @@ extern "C" void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context*
     const gpr dram_addr = MEM_W(0x10, ctx->r29);
     const uint32_t size = static_cast<uint32_t>(MEM_W(0x14, ctx->r29));
 
-    osPiStartDma_recomp(rdram, ctx);
+    // Register executable sections before the runtime sends the DMA-complete
+    // message, otherwise a newly awakened thread may resolve a function before
+    // the overlay has been added to func_map.
     sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
+    osPiStartDma_recomp(rdram, ctx);
 }
 
 extern "C" void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
@@ -130,6 +138,7 @@ extern "C" void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context
     const gpr dram_addr = mb->dramAddr;
     const uint32_t size = mb->size;
 
-    osEPiStartDma_recomp(rdram, ctx);
+    // Same ordering guarantee as the non-handle PI path.
     sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
+    osEPiStartDma_recomp(rdram, ctx);
 }
