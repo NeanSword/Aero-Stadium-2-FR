@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.2"
+$BootstrapVersion = "2026-09-25.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -149,18 +149,16 @@ foreach ($OldLog in @(
 Write-Host ""
 Write-Host "[4/5] Configuring N64ModernRuntime..."
 
-$ConfigureArgs = @(
-    "-S", $SourceDir,
-    "-B", $BuildDir,
-    "-G", "Visual Studio 17 2022",
-    "-A", "x64"
-)
-
 $CMakeExe = (Get-Command cmake -ErrorAction Stop).Source
+
+# Start-Process flattens ArgumentList into one command line. Quote every path
+# and the Visual Studio generator explicitly so names containing spaces remain
+# a single CMake argument on Windows PowerShell 5.1.
+$ConfigureArgumentLine = '-S "{0}" -B "{1}" -G "Visual Studio 17 2022" -A x64' -f $SourceDir, $BuildDir
 
 $ConfigureProcess = Start-Process `
     -FilePath $CMakeExe `
-    -ArgumentList $ConfigureArgs `
+    -ArgumentList $ConfigureArgumentLine `
     -WorkingDirectory $RepoRoot `
     -NoNewWindow `
     -Wait `
@@ -207,16 +205,11 @@ if ($ConfigureExit -ne 0) {
 Write-Host ""
 Write-Host "[5/5] Building ultramodern + librecomp..."
 
-$BuildArgs = @(
-    "--build", $BuildDir,
-    "--config", "Release",
-    "--target", "ultramodern", "librecomp",
-    "--parallel"
-)
+$BuildArgumentLine = '--build "{0}" --config Release --target ultramodern librecomp --parallel' -f $BuildDir
 
 $BuildProcess = Start-Process `
     -FilePath $CMakeExe `
-    -ArgumentList $BuildArgs `
+    -ArgumentList $BuildArgumentLine `
     -WorkingDirectory $RepoRoot `
     -NoNewWindow `
     -Wait `
