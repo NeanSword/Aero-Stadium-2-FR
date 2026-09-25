@@ -15,3 +15,28 @@ functions_per_output_file = 50
 # function for the first static recompilation pass.
 [patches]
 stubs = ["set_watch_lohi"]
+
+# src/unk_220C0.s contains six "bltzal $zero" PC-capture idioms.
+# On R4300 these are used only to place PC+8 in $ra while the branch is never
+# taken. N64Recomp otherwise treats each encoded branch target as a callable
+# static function, including inline literal tables. Replace each idiom with
+# an explicit LUI/ORI pair that materializes the same PC+8 value in $ra.
+instruction = [
+    { func = "func_80021460", vram = 0x80021470, value = 0x3C1F8002 },
+    { func = "func_80021460", vram = 0x80021474, value = 0x37FF1478 },
+
+    { func = "func_80021554", vram = 0x8002157C, value = 0x3C1F8002 },
+    { func = "func_80021554", vram = 0x80021580, value = 0x37FF1584 },
+
+    { func = "func_800217D4", vram = 0x80021834, value = 0x3C1F8002 },
+    { func = "func_800217D4", vram = 0x80021838, value = 0x37FF183C },
+
+    { func = "func_800217D4", vram = 0x80021858, value = 0x3C1F8002 },
+    { func = "func_800217D4", vram = 0x8002185C, value = 0x37FF1860 },
+
+    { func = "func_800217D4", vram = 0x8002187C, value = 0x3C1F8002 },
+    { func = "func_800217D4", vram = 0x80021880, value = 0x37FF1884 },
+
+    { func = "func_800217D4", vram = 0x800218A0, value = 0x3C1F8002 },
+    { func = "func_800217D4", vram = 0x800218A4, value = 0x37FF18A8 },
+]
