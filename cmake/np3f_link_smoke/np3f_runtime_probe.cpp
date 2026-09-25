@@ -56,12 +56,44 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
             default: break;
         }
 
+        const uintptr_t target = static_cast<uintptr_t>(record->ExceptionInformation[1]);
+        const uintptr_t rdram_base = reinterpret_cast<uintptr_t>(g_rdram.load());
+
         std::fprintf(
             stderr,
-            "[win-crash] access_violation operation=%s target=0x%llX\n",
+            "[win-crash] access_violation operation=%s target=0x%llX rdram_base=0x%llX\n",
             operation,
-            static_cast<unsigned long long>(record->ExceptionInformation[1])
+            static_cast<unsigned long long>(target),
+            static_cast<unsigned long long>(rdram_base)
         );
+
+        if (rdram_base != 0 && target >= rdram_base) {
+            const uint64_t offset = static_cast<uint64_t>(target - rdram_base);
+            std::fprintf(
+                stderr,
+                "[win-crash] rdram_offset=0x%llX",
+                static_cast<unsigned long long>(offset)
+            );
+
+            if (offset <= 0xFFFFFFFFULL) {
+                const uint32_t low = static_cast<uint32_t>(offset);
+                if (low < 0x20000000u) {
+                    std::fprintf(
+                        stderr,
+                        " n64_kseg0=0x%08X",
+                        0x80000000u + low
+                    );
+                }
+                else if (low < 0x40000000u) {
+                    std::fprintf(
+                        stderr,
+                        " n64_kseg1=0x%08X",
+                        0x80000000u + low
+                    );
+                }
+            }
+            std::fprintf(stderr, "\n");
+        }
     }
 
     std::fflush(stderr);
