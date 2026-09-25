@@ -2,6 +2,8 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -10,10 +12,15 @@
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
 
+extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
+
 namespace {
 
 std::atomic_bool g_logged_display_list = false;
 std::atomic_bool g_logged_rsp_task = false;
+std::atomic_uint32_t g_created_thread_count = 0;
+std::atomic_bool g_entrypoint_started = false;
+std::atomic_bool g_entrypoint_returned = false;
 
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
@@ -206,6 +213,43 @@ void runtime_message_box(const char* msg) {
 } // namespace
 
 namespace aerostadium2 {
+
+void trace_np3f_on_init(uint8_t*, recomp_context* ctx) {
+    std::printf(
+        "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X\\n",
+        static_cast<unsigned>(ctx->r29),
+        static_cast<unsigned>(ctx->r31)
+    );
+    std::fflush(stdout);
+}
+
+void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx) {
+    g_entrypoint_started.store(true);
+    std::printf(
+        "[cpu-trace] ENTREE recomp_entrypoint NP3F: sp=0x%08X ra=0x%08X\\n",
+        static_cast<unsigned>(ctx->r29),
+        static_cast<unsigned>(ctx->r31)
+    );
+    std::fflush(stdout);
+
+    recomp_entrypoint(rdram, ctx);
+
+    g_entrypoint_returned.store(true);
+    std::printf("[cpu-trace] SORTIE recomp_entrypoint NP3F\\n");
+    std::fflush(stdout);
+}
+
+void trace_np3f_thread_create(uint8_t*, recomp_context* ctx) {
+    const uint32_t index = g_created_thread_count.fetch_add(1) + 1;
+    std::printf(
+        "[cpu-trace] Thread N64 #%u demarre: sp=0x%08X arg=0x%08X ra=0x%08X\\n",
+        index,
+        static_cast<unsigned>(ctx->r29),
+        static_cast<unsigned>(ctx->r4),
+        static_cast<unsigned>(ctx->r31)
+    );
+    std::fflush(stdout);
+}
 
 void run_np3f_runtime_probe(const std::u8string& game_id) {
     const recomp::rsp::callbacks_t rsp_callbacks{
