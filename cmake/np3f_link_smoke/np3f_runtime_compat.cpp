@@ -47,7 +47,11 @@ void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint
     );
     std::fflush(stderr);
 
-    unload_overlays(ram_addr, size);
+    // Generic PI DMA is also used for ordinary data transfers. Calling
+    // unload_overlays() here is unsafe because a small data DMA can land
+    // inside an already-loaded executable section and would look like a
+    // partial overlay unload. load_overlays() is range-aware on the ROM side
+    // and only registers executable sections actually covered by this DMA.
     load_overlays(rom_offset, ram_addr, size);
 }
 
