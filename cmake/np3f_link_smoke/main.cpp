@@ -11,7 +11,10 @@
 #include "recomp.h"
 #include "librecomp/game.hpp"
 
-namespace aerostadium2 {\nvoid register_np3f_overlays();\nvoid run_np3f_runtime_probe(const std::u8string& game_id);\n}
+namespace aerostadium2 {
+void register_np3f_overlays();
+void run_np3f_runtime_probe(const std::u8string& game_id);
+}
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
@@ -171,7 +174,8 @@ int main() {
     }
 
     std::printf("ROM NP3F chargee en memoire: OK\n");
-    std::printf("Etape suivante: initialisation des callbacks RSP/rendu/audio/input puis recomp::start_game().\n");
+    std::printf("Lancement du probe N64ModernRuntime. Fermez la fenetre Aero Stadium 2 pour quitter.\n");
 
+    aerostadium2::run_np3f_runtime_probe(kNp3fGameId);
     return 0;
 }
