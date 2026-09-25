@@ -4,6 +4,8 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <cstring>
+#include <array>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -237,6 +239,75 @@ void print_boot_snapshot() {
     print_thread_snapshot(rdram, 0x800A8850u, "game/id6");
 }
 
+
+bool plausible_rdram_ptr(uint32_t value) {
+    return value == 0 ||
+           value == 0xFFFFFFFFu ||
+           (value >= 0x80000000u && value < 0x80800000u);
+}
+
+void scan_known_np3f_threads() {
+    uint8_t* rdram = g_rdram.load();
+    if (rdram == nullptr) {
+        std::printf("[thread-scan] RDRAM indisponible.\n");
+        return;
+    }
+
+    constexpr std::array<int32_t, 8> kInterestingIds{1, 2, 3, 4, 5, 6, 20, 21};
+    constexpr uint32_t kRdramSize = 8u * 1024u * 1024u;
+
+    std::printf("[thread-scan] Scan RDRAM des OSThread NP3F connus:\n");
+
+    uint32_t found = 0;
+    for (uint32_t offset = 0; offset + sizeof(OSThread) <= kRdramSize; offset += 4) {
+        OSThread thread{};
+        std::memcpy(&thread, rdram + offset, sizeof(thread));
+
+        bool interesting_id = false;
+        for (int32_t id : kInterestingIds) {
+            if (thread.id == id) {
+                interesting_id = true;
+                break;
+            }
+        }
+        if (!interesting_id) {
+            continue;
+        }
+
+        const uint32_t sp = static_cast<uint32_t>(thread.sp);
+        const uint32_t queue = static_cast<uint32_t>(thread.queue);
+        if (thread.priority < 0 || thread.priority > 255) {
+            continue;
+        }
+        if (thread.state > 3) {
+            continue;
+        }
+        if (!(sp >= 0x80000000u && sp < 0x80800000u)) {
+            continue;
+        }
+        if (!plausible_rdram_ptr(queue)) {
+            continue;
+        }
+        if (thread.context == nullptr) {
+            continue;
+        }
+
+        std::printf(
+            "[thread-scan] addr=0x%08X id=%d pri=%d state=%u sp=0x%08X queue=0x%08X context=%p\n",
+            0x80000000u + offset,
+            thread.id,
+            thread.priority,
+            static_cast<unsigned>(thread.state),
+            sp,
+            queue,
+            static_cast<void*>(thread.context)
+        );
+        ++found;
+    }
+
+    std::printf("[thread-scan] Total candidats valides: %u\n", found);
+}
+
 void runtime_message_box(const char* msg) {
     MessageBoxA(
         nullptr,
@@ -365,6 +436,7 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
             g_logged_display_list.load() ? "oui" : "non"
         );
         print_boot_snapshot();
+        scan_known_np3f_threads();
         std::fflush(stdout);
     });
     boot_watchdog.detach();
