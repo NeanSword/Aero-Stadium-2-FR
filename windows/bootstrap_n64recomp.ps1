@@ -73,6 +73,30 @@ if ($null -eq (Get-Command cmake -ErrorAction SilentlyContinue)) {
 & cmake --version | Select-Object -First 1
 Write-Host ""
 
+$VsWhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) "Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path -LiteralPath $VsWhere -PathType Leaf)) {
+    throw @"
+Visual Studio Build Tools 2022 with the C++ workload was not found.
+
+Install it from an elevated PowerShell with:
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --norestart"
+"@
+}
+
+$VsInstall = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if ([string]::IsNullOrWhiteSpace($VsInstall)) {
+    throw @"
+Visual Studio was found, but the MSVC x64/x86 C++ build tools are missing.
+
+Install or modify Build Tools with the workload:
+Microsoft.VisualStudio.Workload.VCTools
+"@
+}
+
+Write-Host "MSVC Build Tools:"
+Write-Host "  $VsInstall"
+Write-Host ""
+
 if ($Force -or -not (Test-Path -LiteralPath $SourceDir)) {
     Write-Host "[1/4] Downloading pinned N64Recomp source without Git..."
     Install-GitHubArchive -Owner "N64Recomp" -Repo "N64Recomp" -Commit $N64RecompCommit -Destination $SourceDir
@@ -99,9 +123,9 @@ if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
-& cmake -S $SourceDir -B $BuildDir -DCMAKE_BUILD_TYPE=Release
+& cmake -S $SourceDir -B $BuildDir -G "Visual Studio 17 2022" -A x64
 if ($LASTEXITCODE -ne 0) {
-    throw "CMake configure failed. A C++20 compiler/Visual Studio Build Tools may be missing."
+    throw "CMake configure failed with the Visual Studio 17 2022 x64 generator."
 }
 
 & cmake --build $BuildDir --config Release --target N64RecompCLI
