@@ -34,7 +34,10 @@ add_subdirectory("${N64MODERNRUNTIME_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/runtime")
 add_library(AeroNP3FGenerated STATIC IMPORTED GLOBAL)
 set_target_properties(AeroNP3FGenerated PROPERTIES IMPORTED_LOCATION "${NP3F_GENERATED_LIB}")
 
-add_executable(AeroStadium2 "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
+add_executable(AeroStadium2
+    "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_compat.cpp"
+)
 
 target_include_directories(AeroStadium2 PRIVATE
     "${NP3F_GENERATED_DIR}"
