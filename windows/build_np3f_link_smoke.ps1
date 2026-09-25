@@ -2,7 +2,7 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-25.2"
+$RunnerVersion = "2026-09-25.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -41,8 +41,18 @@ Write-Host "Runtime source         : $RuntimeSource"
 Write-Host ""
 Write-Host "[1/2] Configuring first AeroStadium2.exe link..."
 $ConfigureArgumentLine = '-S "{0}" -B "{1}" -G "Visual Studio 17 2022" -A x64 -DNP3F_GENERATED_LIB="{2}" -DNP3F_GENERATED_DIR="{3}" -DN64MODERNRUNTIME_SOURCE_DIR="{4}"' -f $CMakeSource,$BuildDir,$GeneratedLibCMake,$GeneratedDirCMake,$RuntimeSourceCMake
-$ConfigureProcess = Start-Process -FilePath $CMakeExe -ArgumentList $ConfigureArgumentLine -WorkingDirectory $RepoRoot -NoNewWindow -Wait -PassThru -RedirectStandardOutput $ConfigureStdoutLog -RedirectStandardError $ConfigureStderrLog
-$ConfigureExit = $ConfigureProcess.ExitCode
+Push-Location $RepoRoot
+try {
+    & $CMakeExe -S $CMakeSource -B $BuildDir -G "Visual Studio 17 2022" -A x64 `
+        "-DNP3F_GENERATED_LIB=$GeneratedLibCMake" `
+        "-DNP3F_GENERATED_DIR=$GeneratedDirCMake" `
+        "-DN64MODERNRUNTIME_SOURCE_DIR=$RuntimeSourceCMake" `
+        1> $ConfigureStdoutLog 2> $ConfigureStderrLog
+    $ConfigureExit = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
 $ConfigureStdout = if (Test-Path $ConfigureStdoutLog) { @(Get-Content $ConfigureStdoutLog) } else { @() }
 $ConfigureStderr = if (Test-Path $ConfigureStderrLog) { @(Get-Content $ConfigureStderrLog) } else { @() }
 @("=== CMake configure stdout ===",$ConfigureStdout,"","=== CMake configure stderr ===",$ConfigureStderr,"","=== CMake configure exit code: $ConfigureExit ===") | Set-Content -LiteralPath $ConfigureLog -Encoding UTF8
@@ -53,9 +63,15 @@ if ($ConfigureExit -ne 0) { exit $ConfigureExit }
 Write-Host ""
 Write-Host "[2/2] Linking AeroStadium2.exe..."
 $env:MSBUILDDISABLENODEREUSE = "1"
-$BuildArgumentLine = '--build "{0}" --config Release --target AeroStadium2 -- /m:1 /nodeReuse:false' -f $BuildDir
-$BuildProcess = Start-Process -FilePath $CMakeExe -ArgumentList $BuildArgumentLine -WorkingDirectory $RepoRoot -NoNewWindow -Wait -PassThru -RedirectStandardOutput $BuildStdoutLog -RedirectStandardError $BuildStderrLog
-$BuildExit = $BuildProcess.ExitCode
+Push-Location $RepoRoot
+try {
+    & $CMakeExe --build $BuildDir --config Release --target AeroStadium2 -- /m:1 /nodeReuse:false `
+        1> $BuildStdoutLog 2> $BuildStderrLog
+    $BuildExit = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
 $BuildStdout = if (Test-Path $BuildStdoutLog) { @(Get-Content $BuildStdoutLog) } else { @() }
 $BuildStderr = if (Test-Path $BuildStderrLog) { @(Get-Content $BuildStderrLog) } else { @() }
 @("=== CMake build stdout ===",$BuildStdout,"","=== CMake build stderr ===",$BuildStderr,"","=== CMake build exit code: $BuildExit ===") | Set-Content -LiteralPath $BuildLog -Encoding UTF8
