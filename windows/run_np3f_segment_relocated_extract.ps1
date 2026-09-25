@@ -45,6 +45,7 @@ Write-Host "Running Splat with segment-aware candidate..."
 
 $RunArgs = @{
     CandidateYaml = $OutputYaml
+    AllowRelocatedStarts = $true
 }
 if (-not [string]::IsNullOrWhiteSpace($Rom)) {
     $RunArgs["Rom"] = $Rom
