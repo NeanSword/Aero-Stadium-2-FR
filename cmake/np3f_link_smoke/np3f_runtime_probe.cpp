@@ -216,7 +216,7 @@ namespace aerostadium2 {
 
 void trace_np3f_on_init(uint8_t*, recomp_context* ctx) {
     std::printf(
-        "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X\\n",
+        "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X\n",
         static_cast<unsigned>(ctx->r29),
         static_cast<unsigned>(ctx->r31)
     );
@@ -226,7 +226,7 @@ void trace_np3f_on_init(uint8_t*, recomp_context* ctx) {
 void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx) {
     g_entrypoint_started.store(true);
     std::printf(
-        "[cpu-trace] ENTREE recomp_entrypoint NP3F: sp=0x%08X ra=0x%08X\\n",
+        "[cpu-trace] ENTREE recomp_entrypoint NP3F: sp=0x%08X ra=0x%08X\n",
         static_cast<unsigned>(ctx->r29),
         static_cast<unsigned>(ctx->r31)
     );
@@ -235,19 +235,42 @@ void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx) {
     recomp_entrypoint(rdram, ctx);
 
     g_entrypoint_returned.store(true);
-    std::printf("[cpu-trace] SORTIE recomp_entrypoint NP3F\\n");
+    std::printf("[cpu-trace] SORTIE recomp_entrypoint NP3F\n");
     std::fflush(stdout);
 }
 
-void trace_np3f_thread_create(uint8_t*, recomp_context* ctx) {
+void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
     const uint32_t index = g_created_thread_count.fetch_add(1) + 1;
-    std::printf(
-        "[cpu-trace] Thread N64 #%u demarre: sp=0x%08X arg=0x%08X ra=0x%08X\\n",
-        index,
-        static_cast<unsigned>(ctx->r29),
-        static_cast<unsigned>(ctx->r4),
-        static_cast<unsigned>(ctx->r31)
-    );
+
+    const PTR(OSThread) current_thread_addr = ultramodern::this_thread();
+    OSThread* current_thread = nullptr;
+    if (current_thread_addr != NULLPTR) {
+        current_thread = TO_PTR(OSThread, current_thread_addr);
+    }
+
+    if (current_thread != nullptr) {
+        std::printf(
+            "[cpu-trace] Thread N64 #%u: id=%d pri=%d state=%u thread=0x%08X sp=0x%08X arg=0x%08X ra=0x%08X\n",
+            index,
+            current_thread->id,
+            current_thread->priority,
+            static_cast<unsigned>(current_thread->state),
+            static_cast<unsigned>(current_thread_addr),
+            static_cast<unsigned>(ctx->r29),
+            static_cast<unsigned>(ctx->r4),
+            static_cast<unsigned>(ctx->r31)
+        );
+    }
+    else {
+        std::printf(
+            "[cpu-trace] Thread N64 #%u: OSThread inconnu sp=0x%08X arg=0x%08X ra=0x%08X\n",
+            index,
+            static_cast<unsigned>(ctx->r29),
+            static_cast<unsigned>(ctx->r4),
+            static_cast<unsigned>(ctx->r31)
+        );
+    }
+
     std::fflush(stdout);
 }
 
