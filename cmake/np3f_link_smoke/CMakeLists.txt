@@ -67,6 +67,7 @@ target_include_directories(AeroStadium2 PRIVATE
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty"
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/concurrentqueue"
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/o1heap"
+    "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/xxHash"
 )
 
 target_link_libraries(AeroStadium2 PRIVATE
