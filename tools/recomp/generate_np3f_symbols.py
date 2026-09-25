@@ -222,10 +222,19 @@ def load_relocated_libultra_symbols(
 ) -> list[dict[str, Any]]:
     if not symbol_path.is_file():
         raise SystemExit(
-            "ERROR: upstream US code symbols not found: "
+            "ERROR: vendored libultra symbol table not found: "
             f"{symbol_path}\n"
-            "The recompilation symbol pass requires the pinned pret/pokestadiumgs "
-            "checkout used by the Splat configuration."
+            "Download config/np3f_libultra_symbols_us.json from the project repo."
+        )
+
+    payload = json.loads(symbol_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise SystemExit(f"ERROR: invalid libultra symbol table: {symbol_path}")
+
+    raw_symbols = payload.get("symbols")
+    if not isinstance(raw_symbols, list):
+        raise SystemExit(
+            f"ERROR: libultra symbol table has no symbols array: {symbol_path}"
         )
 
     expected_size = US_LIBULTRA_ROM_END - US_LIBULTRA_ROM_START
@@ -234,6 +243,13 @@ def load_relocated_libultra_symbols(
         raise SystemExit(
             "ERROR: NP3F libultra extent does not match pinned NP3E extent: "
             f"FR=0x{actual_size:X}, US=0x{expected_size:X}."
+        )
+
+    declared_count = payload.get("symbol_count")
+    if declared_count is not None and int(declared_count) != len(raw_symbols):
+        raise SystemExit(
+            "ERROR: libultra symbol table count mismatch: "
+            f"declared={declared_count}, actual={len(raw_symbols)}."
         )
 
     delta = fr_rom_start - US_LIBULTRA_ROM_START
@@ -245,13 +261,16 @@ def load_relocated_libultra_symbols(
     )
 
     symbols: list[dict[str, Any]] = []
-    for line in symbol_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        match = UPSTREAM_FUNC_SYMBOL_RE.match(line)
-        if not match:
+    for raw in raw_symbols:
+        if not isinstance(raw, dict):
             continue
 
-        name = match.group(1)
-        us_vram = int(match.group(2), 16)
+        name = str(raw.get("name", ""))
+        us_vram_raw = raw.get("us_vram")
+        if not name or us_vram_raw is None:
+            continue
+
+        us_vram = parse_int(us_vram_raw)
         if us_vram_start <= us_vram < us_vram_end:
             fr_vram = us_vram + delta
 
@@ -451,9 +470,9 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("build/np3f/recomp/np3f.syms.toml"))
     parser.add_argument("--report", type=Path, default=Path("build/np3f/analysis/recomp_symbols_report.json"))
     parser.add_argument(
-        "--us-code-symbols",
+        "--libultra-symbols",
         type=Path,
-        default=Path("upstream/pokestadiumgs/linker_scripts/us/symbol_addrs_code.txt"),
+        default=Path("config/np3f_libultra_symbols_us.json"),
     )
     args = parser.parse_args()
 
@@ -473,7 +492,7 @@ def main() -> int:
     cpu_exclusions = collect_cpu_exclusions(config)
     fr_libultra_start, fr_libultra_end = collect_fr_libultra_range(config)
     relocated_libultra_symbols = load_relocated_libultra_symbols(
-        args.us_code_symbols,
+        args.libultra_symbols,
         fr_libultra_start,
         fr_libultra_end,
     )
@@ -728,7 +747,7 @@ def main() -> int:
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
         "relocated_libultra": {
-            "us_symbol_file": str(args.us_code_symbols),
+            "symbol_table": str(args.libultra_symbols),
             "us_rom_start": US_LIBULTRA_ROM_START,
             "us_rom_end": US_LIBULTRA_ROM_END,
             "fr_rom_start": fr_libultra_start,
