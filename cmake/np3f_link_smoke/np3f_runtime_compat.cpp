@@ -4,6 +4,8 @@
 #include "librecomp/addresses.hpp"
 #include "librecomp/game.hpp"
 #include "librecomp/helpers.hpp"
+#include "librecomp/overlays.hpp"
+#include <ultramodern/ultra64.h>
 
 namespace {
 
@@ -15,6 +17,33 @@ constexpr uint32_t k1_to_phys(uint32_t addr) {
 
 void return_no_pack(recomp_context* ctx) {
     _return<s32>(ctx, kPfsErrNoPack);
+}
+
+
+void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint32_t direction) {
+    if (direction != 0 || size == 0) {
+        return;
+    }
+
+    const uint32_t physical_addr = k1_to_phys(dev_addr);
+    if (physical_addr < recomp::rom_base) {
+        return;
+    }
+
+    const uint32_t rom_offset = physical_addr - recomp::rom_base;
+    const int32_t ram_addr = static_cast<int32_t>(dram_addr);
+
+    std::fprintf(
+        stderr,
+        "[overlay-dma] ROM 0x%08X -> RAM 0x%08X size=0x%08X\n",
+        rom_offset,
+        static_cast<uint32_t>(ram_addr),
+        size
+    );
+    std::fflush(stderr);
+
+    unload_overlays(ram_addr, size);
+    load_overlays(rom_offset, ram_addr, size);
 }
 
 } // namespace
@@ -72,4 +101,35 @@ extern "C" void osPiReadIo_recomp(uint8_t* rdram, recomp_context* ctx) {
 // modifying the upstream runtime.
 extern "C" void osPiWriteIo_recomp(uint8_t*, recomp_context* ctx) {
     _return<s32>(ctx, 0);
+}
+
+
+// N64ModernRuntime performs ROM PI DMA correctly, but its generic PI path
+// does not update the recomp overlay lookup table for code copied after boot.
+// Route NP3F's PI DMA calls through these wrappers so dynamically loaded code
+// is registered at the RAM address where the game actually placed it.
+extern "C" void osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
+extern "C" void osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
+
+extern "C" void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
+    const uint32_t direction = static_cast<uint32_t>(ctx->r6);
+    const uint32_t dev_addr = static_cast<uint32_t>(ctx->r7) | recomp::rom_base;
+    const gpr dram_addr = MEM_W(0x10, ctx->r29);
+    const uint32_t size = static_cast<uint32_t>(MEM_W(0x14, ctx->r29));
+
+    osPiStartDma_recomp(rdram, ctx);
+    sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
+}
+
+extern "C" void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
+    OSPiHandle* handle = TO_PTR(OSPiHandle, ctx->r4);
+    OSIoMesg* mb = TO_PTR(OSIoMesg, ctx->r5);
+
+    const uint32_t direction = static_cast<uint32_t>(ctx->r6);
+    const uint32_t dev_addr = handle->baseAddress | mb->devAddr;
+    const gpr dram_addr = mb->dramAddr;
+    const uint32_t size = mb->size;
+
+    osEPiStartDma_recomp(rdram, ctx);
+    sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
 }
