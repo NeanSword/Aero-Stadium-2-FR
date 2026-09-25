@@ -10,6 +10,7 @@ $Symbols = Join-Path $RepoRoot "build\np3f\recomp\np3f.syms.toml"
 $SymbolReport = Join-Path $RepoRoot "build\np3f\analysis\recomp_symbols_report.json"
 $Config = Join-Path $RepoRoot "recomp\np3f.toml"
 $Log = Join-Path $RepoRoot "build\NP3F_N64RECOMP.log"
+$GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
 
 Write-Host "=== Aero-Stadium-2-FR / first NP3F N64Recomp pass ==="
 Write-Host ""
@@ -46,6 +47,12 @@ if ($SymbolsExit -ne 0) {
 
 Write-Host ""
 Write-Host "[3/3] Running N64Recomp..."
+
+if (Test-Path -LiteralPath $GeneratedDir) {
+    Write-Host "Removing partial previous recompilation output: $GeneratedDir"
+    Remove-Item -LiteralPath $GeneratedDir -Recurse -Force
+}
+
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null
 
 Push-Location $RepoRoot
