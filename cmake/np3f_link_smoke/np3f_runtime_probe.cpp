@@ -323,18 +323,22 @@ void runtime_message_box(const char* msg) {
 namespace aerostadium2 {
 
 void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx) {
-    constexpr gpr kOsTvType = 0x80000300u;
+    // IPL3 stores osTvType at virtual address 0x80000300, i.e. RDRAM offset 0x300.
+    // Access the RDRAM offset directly here instead of feeding an unsigned KSEG0
+    // address into MEM_W, which expects a sign-extended 64-bit N64 address.
+    constexpr size_t kOsTvTypeOffset = 0x300;
     constexpr int32_t kOsTvPal = 0;
 
-    const int32_t runtime_tv_type = MEM_W(0, kOsTvType);
-    MEM_W(0, kOsTvType) = kOsTvPal;
+    auto* os_tv_type = reinterpret_cast<int32_t*>(rdram + kOsTvTypeOffset);
+    const int32_t runtime_tv_type = *os_tv_type;
+    *os_tv_type = kOsTvPal;
 
     std::printf(
         "[cpu-trace] on_init NP3F: sp=0x%08X ra=0x%08X osTvType=%d -> %d (PAL)\n",
         static_cast<unsigned>(ctx->r29),
         static_cast<unsigned>(ctx->r31),
         runtime_tv_type,
-        MEM_W(0, kOsTvType)
+        *os_tv_type
     );
     std::fflush(stdout);
 }
