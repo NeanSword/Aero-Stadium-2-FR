@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.3"
+$BootstrapVersion = "2026-09-25.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -127,6 +127,44 @@ else {
     Write-Host "[2/5] Existing runtime dependencies retained."
     Write-Host "[3/5] Existing runtime N64Recomp retained."
     Write-Host "      Use -Force to redownload the pinned source set."
+}
+
+# N64ModernRuntime main currently passes a GCC/Clang warning switch directly
+# to both runtime targets. Visual Studio translates "-Wno-unused-parameter"
+# into "/Wno-unused-parameter", which MSVC rejects as D8021. Keep upstream
+# sources otherwise untouched and gate that warning switch away on MSVC.
+foreach ($RuntimeTarget in @("ultramodern", "librecomp")) {
+    $RuntimeCMake = Join-Path $SourceDir "$RuntimeTarget\CMakeLists.txt"
+    if (-not (Test-Path -LiteralPath $RuntimeCMake -PathType Leaf)) {
+        throw "Runtime CMake file not found: $RuntimeCMake"
+    }
+
+    $RuntimeCMakeText = Get-Content -LiteralPath $RuntimeCMake -Raw
+    $OldBlock = @"
+target_compile_options($RuntimeTarget PRIVATE
+#    -Wall
+#    -Wextra
+    -Wno-unused-parameter
+)
+"@
+    $NewBlock = @"
+if (NOT MSVC)
+    target_compile_options($RuntimeTarget PRIVATE
+    #    -Wall
+    #    -Wextra
+        -Wno-unused-parameter
+    )
+endif()
+"@
+
+    if ($RuntimeCMakeText.Contains($OldBlock)) {
+        $RuntimeCMakeText = $RuntimeCMakeText.Replace($OldBlock, $NewBlock)
+        Set-Content -LiteralPath $RuntimeCMake -Value $RuntimeCMakeText -Encoding UTF8
+        Write-Host "Applied MSVC warning compatibility patch: $RuntimeTarget"
+    }
+    elseif ($RuntimeCMakeText -notmatch 'if \(NOT MSVC\)[\s\S]*-Wno-unused-parameter') {
+        throw "Could not find expected warning block in $RuntimeCMake"
+    }
 }
 
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
