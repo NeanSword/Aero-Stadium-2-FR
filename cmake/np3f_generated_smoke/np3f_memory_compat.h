@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include "recomp.h"
 
+extern void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
+extern void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
+
+#define osPiStartDma_recomp aerostadium2_osPiStartDma_recomp
+#define osEPiStartDma_recomp aerostadium2_osEPiStartDma_recomp
+
 // Pokemon Stadium 2 FR uses KSEG1 aliases of main RDRAM in a few runtime
 // paths. N64Recomp's generic MEM_* macros currently treat all generated
 // addresses relative to KSEG0, so an address such as 0xA00DB122 would land
