@@ -116,6 +116,60 @@ else {
 Write-Host ""
 Write-Host "[3/4] Configuring and building N64Recomp..."
 
+$CachePath = Join-Path $BuildDir "CMakeCache.txt"
+if (Test-Path -LiteralPath $CachePath -PathType Leaf) {
+    $CachedGenerator = Select-String -LiteralPath $CachePath -Pattern '^CMAKE_GENERATOR:INTERNAL=(.+)
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+
+& cmake -S $SourceDir -B $BuildDir -G "Visual Studio 17 2022" -A x64
+if ($LASTEXITCODE -ne 0) {
+    throw "CMake configure failed with the Visual Studio 17 2022 x64 generator."
+}
+
+& cmake --build $BuildDir --config Release --target N64RecompCLI
+if ($LASTEXITCODE -ne 0) {
+    throw "N64Recomp build failed."
+}
+
+$BuiltExe = Get-ChildItem -LiteralPath $BuildDir -Filter "N64Recomp.exe" -Recurse -File | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+if ($null -eq $BuiltExe) {
+    throw "Build completed but N64Recomp.exe was not found."
+}
+
+Copy-Item -LiteralPath $BuiltExe.FullName -Destination $ExePath -Force
+
+Write-Host ""
+Write-Host "[4/4] Verifying N64Recomp executable..."
+& $ExePath
+if ($LASTEXITCODE -ne 0) {
+    throw "N64Recomp executable verification failed."
+}
+
+$Versions = @{
+    n64recomp = $N64RecompCommit
+    rabbitizer = "e0d8003047938e2ec3697eaf8d61a84d11d17b43"
+    elfio = "ad8b641f9682b6091ba8b9f7c8152255c1a2c803"
+    fmt = "407c905e45ad75fc29bf0f9bb7c5c2fd3475976f"
+    tomlplusplus = "1f7884e59165e517462f922e7b6de131bd9844f3"
+    sljit = "f6326087b3404efb07c6d3deed97b3c3b8098c0c"
+}
+$Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8
+
+Write-Host ""
+Write-Host "N64Recomp bootstrap completed."
+Write-Host "Executable: $ExePath"
+exit 0
+ | Select-Object -First 1
+    if ($null -ne $CachedGenerator) {
+        $GeneratorName = $CachedGenerator.Matches[0].Groups[1].Value
+        if ($GeneratorName -ne "Visual Studio 17 2022") {
+            Write-Host "Previous CMake generator detected: $GeneratorName"
+            Write-Host "Removing stale build cache before switching to Visual Studio 17 2022..."
+            Remove-Item -LiteralPath $BuildDir -Recurse -Force
+        }
+    }
+}
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
