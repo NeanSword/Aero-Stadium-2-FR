@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.1"
+$BootstrapVersion = "2026-09-25.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -13,7 +13,11 @@ $SourceDir = Join-Path $LocalRoot "src"
 $BuildDir = Join-Path $LocalRoot "build-vs2022-x64"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
 $ConfigureLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_CONFIGURE.log"
+$ConfigureStdoutLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_CONFIGURE.stdout.log"
+$ConfigureStderrLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_CONFIGURE.stderr.log"
 $BuildLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_BUILD.log"
+$BuildStdoutLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_BUILD.stdout.log"
+$BuildStderrLog = Join-Path $LogDir "NP3F_N64MODERNRUNTIME_BUILD.stderr.log"
 
 $RuntimeCommit = "cdf5abbd5026fef5c364c676e4667c45e42b6863"
 $N64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
@@ -131,8 +135,16 @@ if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-Remove-Item -LiteralPath $ConfigureLog -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $BuildLog -Force -ErrorAction SilentlyContinue
+foreach ($OldLog in @(
+    $ConfigureLog,
+    $ConfigureStdoutLog,
+    $ConfigureStderrLog,
+    $BuildLog,
+    $BuildStdoutLog,
+    $BuildStderrLog
+)) {
+    Remove-Item -LiteralPath $OldLog -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host ""
 Write-Host "[4/5] Configuring N64ModernRuntime..."
@@ -144,12 +156,51 @@ $ConfigureArgs = @(
     "-A", "x64"
 )
 
-& cmake @ConfigureArgs 2>&1 | Tee-Object -FilePath $ConfigureLog
-$ConfigureExit = $LASTEXITCODE
+$CMakeExe = (Get-Command cmake -ErrorAction Stop).Source
+
+$ConfigureProcess = Start-Process `
+    -FilePath $CMakeExe `
+    -ArgumentList $ConfigureArgs `
+    -WorkingDirectory $RepoRoot `
+    -NoNewWindow `
+    -Wait `
+    -PassThru `
+    -RedirectStandardOutput $ConfigureStdoutLog `
+    -RedirectStandardError $ConfigureStderrLog
+
+$ConfigureExit = $ConfigureProcess.ExitCode
+
+$ConfigureStdout = @()
+$ConfigureStderr = @()
+if (Test-Path -LiteralPath $ConfigureStdoutLog) {
+    $ConfigureStdout = @(Get-Content -LiteralPath $ConfigureStdoutLog)
+}
+if (Test-Path -LiteralPath $ConfigureStderrLog) {
+    $ConfigureStderr = @(Get-Content -LiteralPath $ConfigureStderrLog)
+}
+
+@(
+    "=== CMake configure stdout ==="
+    $ConfigureStdout
+    ""
+    "=== CMake configure stderr ==="
+    $ConfigureStderr
+    ""
+    "=== CMake configure exit code: $ConfigureExit ==="
+) | Set-Content -LiteralPath $ConfigureLog -Encoding UTF8
+
+if ($ConfigureStdout.Count -gt 0) {
+    $ConfigureStdout | ForEach-Object { Write-Host $_ }
+}
+if ($ConfigureStderr.Count -gt 0) {
+    $ConfigureStderr | ForEach-Object { Write-Warning $_ }
+}
 
 if ($ConfigureExit -ne 0) {
     Write-Host ""
-    Write-Host "Configure log: $ConfigureLog"
+    Write-Host "Configure log        : $ConfigureLog"
+    Write-Host "Configure stdout log : $ConfigureStdoutLog"
+    Write-Host "Configure stderr log : $ConfigureStderrLog"
     exit $ConfigureExit
 }
 
@@ -163,14 +214,51 @@ $BuildArgs = @(
     "--parallel"
 )
 
-& cmake @BuildArgs 2>&1 | Tee-Object -FilePath $BuildLog
-$BuildExit = $LASTEXITCODE
+$BuildProcess = Start-Process `
+    -FilePath $CMakeExe `
+    -ArgumentList $BuildArgs `
+    -WorkingDirectory $RepoRoot `
+    -NoNewWindow `
+    -Wait `
+    -PassThru `
+    -RedirectStandardOutput $BuildStdoutLog `
+    -RedirectStandardError $BuildStderrLog
+
+$BuildExit = $BuildProcess.ExitCode
+
+$BuildStdout = @()
+$BuildStderr = @()
+if (Test-Path -LiteralPath $BuildStdoutLog) {
+    $BuildStdout = @(Get-Content -LiteralPath $BuildStdoutLog)
+}
+if (Test-Path -LiteralPath $BuildStderrLog) {
+    $BuildStderr = @(Get-Content -LiteralPath $BuildStderrLog)
+}
+
+@(
+    "=== CMake build stdout ==="
+    $BuildStdout
+    ""
+    "=== CMake build stderr ==="
+    $BuildStderr
+    ""
+    "=== CMake build exit code: $BuildExit ==="
+) | Set-Content -LiteralPath $BuildLog -Encoding UTF8
+
+if ($BuildStdout.Count -gt 0) {
+    $BuildStdout | ForEach-Object { Write-Host $_ }
+}
+if ($BuildStderr.Count -gt 0) {
+    $BuildStderr | ForEach-Object { Write-Warning $_ }
+}
 
 Write-Host ""
 Write-Host "Configure log : $ConfigureLog"
 Write-Host "Build log     : $BuildLog"
 
 if ($BuildExit -ne 0) {
+    Write-Host "Build stdout  : $BuildStdoutLog"
+    Write-Host "Build stderr  : $BuildStderrLog"
     Write-Host "N64ModernRuntime build stopped with exit code $BuildExit."
     exit $BuildExit
 }
