@@ -19,6 +19,16 @@ SECTION_RE = re.compile(r"^\s*\.section\s+([^\s,]+)")
 INSTR_RE = re.compile(
     r"/\*\s*([0-9A-Fa-f]{6,8})\s+([0-9A-Fa-f]{8})\s+([0-9A-Fa-f]{8})\s*\*/"
 )
+UPSTREAM_FUNC_SYMBOL_RE = re.compile(
+    r"^\s*([A-Za-z_.$][A-Za-z0-9_.$]*)\s*=\s*(0x[0-9A-Fa-f]+)\s*;.*\btype:func\b"
+)
+
+# Pinned pret/pokestadiumgs US libultra text range. NP3F keeps this block
+# byte-identical but relocates the whole range by +0x120.
+US_LIBULTRA_ROM_START = 0x746D0
+US_LIBULTRA_ROM_END = 0x85DA0
+US_TEXT_ROM_START = 0x1000
+US_TEXT_VRAM_START = 0x80000400
 
 
 @dataclass
@@ -141,6 +151,139 @@ def function_hits_exclusion(
         ):
             return exclusion
     return None
+
+
+def collect_fr_libultra_range(
+    config: dict[str, Any],
+) -> tuple[int, int]:
+    segments = config.get("segments")
+    if not isinstance(segments, list):
+        raise SystemExit("ERROR: canonical YAML has no segments list.")
+
+    for segment in segments:
+        if not isinstance(segment, dict) or str(segment.get("name", "")) != "text":
+            continue
+
+        subsegments = segment.get("subsegments")
+        if not isinstance(subsegments, list):
+            continue
+
+        starts: list[tuple[int, list[Any]]] = []
+        for subsegment in subsegments:
+            if isinstance(subsegment, list) and len(subsegment) >= 2:
+                try:
+                    starts.append((parse_int(subsegment[0]), subsegment))
+                except (TypeError, ValueError):
+                    pass
+
+        starts.sort(key=lambda item: item[0])
+
+        first_lib_index: int | None = None
+        for index, (_, subsegment) in enumerate(starts):
+            if (
+                len(subsegment) >= 4
+                and str(subsegment[1]) == "lib"
+                and str(subsegment[2]) == "libultra"
+            ):
+                first_lib_index = index
+                break
+
+        if first_lib_index is None:
+            break
+
+        fr_start = starts[first_lib_index][0]
+        fr_end: int | None = None
+
+        for index in range(first_lib_index + 1, len(starts)):
+            start, subsegment = starts[index]
+            is_libultra = (
+                len(subsegment) >= 4
+                and str(subsegment[1]) == "lib"
+                and str(subsegment[2]) == "libultra"
+            )
+            is_pad = len(subsegment) >= 2 and str(subsegment[1]) == "pad"
+
+            if not is_libultra and not is_pad:
+                fr_end = start
+                break
+
+        if fr_end is None:
+            raise SystemExit("ERROR: could not determine NP3F libultra end.")
+
+        return fr_start, fr_end
+
+    raise SystemExit("ERROR: could not locate NP3F libultra range in canonical YAML.")
+
+
+def load_relocated_libultra_symbols(
+    symbol_path: Path,
+    fr_rom_start: int,
+    fr_rom_end: int,
+) -> list[dict[str, Any]]:
+    if not symbol_path.is_file():
+        raise SystemExit(
+            "ERROR: upstream US code symbols not found: "
+            f"{symbol_path}\n"
+            "The recompilation symbol pass requires the pinned pret/pokestadiumgs "
+            "checkout used by the Splat configuration."
+        )
+
+    expected_size = US_LIBULTRA_ROM_END - US_LIBULTRA_ROM_START
+    actual_size = fr_rom_end - fr_rom_start
+    if actual_size != expected_size:
+        raise SystemExit(
+            "ERROR: NP3F libultra extent does not match pinned NP3E extent: "
+            f"FR=0x{actual_size:X}, US=0x{expected_size:X}."
+        )
+
+    delta = fr_rom_start - US_LIBULTRA_ROM_START
+    us_vram_start = US_TEXT_VRAM_START + (
+        US_LIBULTRA_ROM_START - US_TEXT_ROM_START
+    )
+    us_vram_end = US_TEXT_VRAM_START + (
+        US_LIBULTRA_ROM_END - US_TEXT_ROM_START
+    )
+
+    symbols: list[dict[str, Any]] = []
+    for line in symbol_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = UPSTREAM_FUNC_SYMBOL_RE.match(line)
+        if not match:
+            continue
+
+        name = match.group(1)
+        us_vram = int(match.group(2), 16)
+        if us_vram_start <= us_vram < us_vram_end:
+            fr_vram = us_vram + delta
+
+            generic_match = re.fullmatch(r"func_[0-9A-Fa-f]{8}", name)
+            if generic_match:
+                name = f"func_{fr_vram:08X}"
+
+            symbols.append(
+                {
+                    "name": name,
+                    "us_vram": us_vram,
+                    "fr_vram": fr_vram,
+                    "delta": delta,
+                }
+            )
+
+    symbols.sort(key=lambda item: int(item["fr_vram"]))
+
+    if not symbols:
+        raise SystemExit(
+            f"ERROR: no libultra function symbols recovered from {symbol_path}."
+        )
+
+    for index, item in enumerate(symbols):
+        next_vram = (
+            int(symbols[index + 1]["fr_vram"])
+            if index + 1 < len(symbols)
+            else US_TEXT_VRAM_START + (fr_rom_end - US_TEXT_ROM_START)
+        )
+        item["size"] = next_vram - int(item["fr_vram"])
+
+    return symbols
 
 
 def collect_sections(config: dict[str, Any]) -> dict[str, CodeSection]:
@@ -307,6 +450,11 @@ def main() -> int:
     parser.add_argument("--asm-root", type=Path, default=Path("build/np3f/asm"))
     parser.add_argument("--output", type=Path, default=Path("build/np3f/recomp/np3f.syms.toml"))
     parser.add_argument("--report", type=Path, default=Path("build/np3f/analysis/recomp_symbols_report.json"))
+    parser.add_argument(
+        "--us-code-symbols",
+        type=Path,
+        default=Path("upstream/pokestadiumgs/linker_scripts/us/symbol_addrs_code.txt"),
+    )
     args = parser.parse_args()
 
     if not args.yaml.is_file():
@@ -323,6 +471,12 @@ def main() -> int:
 
     sections = collect_sections(config)
     cpu_exclusions = collect_cpu_exclusions(config)
+    fr_libultra_start, fr_libultra_end = collect_fr_libultra_range(config)
+    relocated_libultra_symbols = load_relocated_libultra_symbols(
+        args.us_code_symbols,
+        fr_libultra_start,
+        fr_libultra_end,
+    )
 
     asm_files = sorted(args.asm_root.rglob("*.s"))
     if not asm_files:
@@ -394,6 +548,48 @@ def main() -> int:
 
     if not valid:
         raise SystemExit("ERROR: no valid functions recovered from Splat assembly.")
+
+    # Overlay calls can target libultra functions that Splat does not emit as
+    # glabels in --disassemble-all output. Recover the complete pinned NP3E
+    # libultra symbol set, relocate it by the NP3F block delta, then either
+    # rename the detected function at that address or inject the missing one.
+    relocated_libultra_applied: list[dict[str, Any]] = []
+    valid_by_text_vram: dict[int, Function] = {
+        func.vram: func for func in valid if func.section == "text"
+    }
+
+    for symbol in relocated_libultra_symbols:
+        fr_vram = int(symbol["fr_vram"])
+        known = valid_by_text_vram.get(fr_vram)
+
+        if known is not None:
+            old_name = known.original_name
+            known.original_name = str(symbol["name"])
+            relocated_libultra_applied.append(
+                {
+                    **symbol,
+                    "action": "renamed_existing",
+                    "detected_name": old_name,
+                }
+            )
+            continue
+
+        injected = Function(
+            original_name=str(symbol["name"]),
+            name=str(symbol["name"]),
+            vram=fr_vram,
+            size=int(symbol["size"]),
+            asm_path=f"relocated-libultra:{symbol['name']}",
+            section="text",
+        )
+        valid.append(injected)
+        valid_by_text_vram[fr_vram] = injected
+        relocated_libultra_applied.append(
+            {
+                **symbol,
+                "action": "injected_missing",
+            }
+        )
 
     # Merge unlabeled nonmatchings code chunks into the preceding function when
     # they are exactly contiguous. Splat emits these for internal jump-table
@@ -531,6 +727,25 @@ def main() -> int:
         "duplicate_function_names": sorted(name for name, count in name_counts.items() if count > 1),
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
+        "relocated_libultra": {
+            "us_symbol_file": str(args.us_code_symbols),
+            "us_rom_start": US_LIBULTRA_ROM_START,
+            "us_rom_end": US_LIBULTRA_ROM_END,
+            "fr_rom_start": fr_libultra_start,
+            "fr_rom_end": fr_libultra_end,
+            "delta": fr_libultra_start - US_LIBULTRA_ROM_START,
+            "symbols_considered": len(relocated_libultra_symbols),
+            "symbols_applied": len(relocated_libultra_applied),
+            "injected_missing": sum(
+                item["action"] == "injected_missing"
+                for item in relocated_libultra_applied
+            ),
+            "renamed_existing": sum(
+                item["action"] == "renamed_existing"
+                for item in relocated_libultra_applied
+            ),
+        },
+        "relocated_libultra_symbols": relocated_libultra_applied,
         "merged_unlabeled_code_chunks": merged_unlabeled_code_chunks,
         "rejected_functions": rejected,
         "cpu_exclusions": cpu_exclusions,
@@ -549,6 +764,16 @@ def main() -> int:
     print(f"  sections with functions : {report['sections_with_functions']} / {len(sections)}")
     print(f"  rejected functions       : {len(rejected)}")
     print(f"  verified name overrides  : {len(verified_name_overrides)}")
+    print(
+        "  relocated libultra funcs : "
+        f"{len(relocated_libultra_applied)} "
+        f"(+0x{fr_libultra_start - US_LIBULTRA_ROM_START:X})"
+    )
+    print(
+        "    injected / renamed      : "
+        f"{sum(item['action'] == 'injected_missing' for item in relocated_libultra_applied)} / "
+        f"{sum(item['action'] == 'renamed_existing' for item in relocated_libultra_applied)}"
+    )
     print(f"  merged code continuations: {len(merged_unlabeled_code_chunks)}")
     for continuation in merged_unlabeled_code_chunks:
         print(
