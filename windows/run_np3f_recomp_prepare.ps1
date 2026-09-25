@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-25.3"
+$RunnerVersion = "2026-09-25.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -17,6 +17,7 @@ $RecompYaml = Join-Path $RepoRoot "build\np3f\recomp\splat.recomp.yaml"
 $AsmDir = Join-Path $RepoRoot "build\np3f\asm"
 $SrcDir = Join-Path $RepoRoot "build\np3f\src"
 $CleanExtractStamp = Join-Path $RepoRoot "build\np3f\recomp\.np3f-symbol-clean-extract-v1"
+$GeneratorScript = Join-Path $RepoRoot "tools\recomp\generate_np3f_symbols.py"
 
 Write-Host "=== Aero-Stadium-2-FR / first NP3F N64Recomp pass ==="
 Write-Host "Runner version: $RunnerVersion"
