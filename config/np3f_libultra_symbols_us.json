@@ -1,0 +1,1142 @@
+{
+  "source_repository": "pret/pokestadiumgs",
+  "source_commit": "c0e10f23d90cc4f335b654711f13e53c2c07323b",
+  "source_path": "linker_scripts/us/symbol_addrs_code.txt",
+  "us_text_rom_start": "0x1000",
+  "us_text_vram_start": "0x80000400",
+  "us_libultra_rom_start": "0x746D0",
+  "us_libultra_rom_end": "0x85DA0",
+  "us_libultra_vram_start": "0x80073AD0",
+  "us_libultra_vram_end": "0x800851A0",
+  "symbol_count": 282,
+  "symbols": [
+    {
+      "name": "osSendMesg",
+      "us_vram": "0x80073AD0"
+    },
+    {
+      "name": "osStopThread",
+      "us_vram": "0x80073C20"
+    },
+    {
+      "name": "osRecvMesg",
+      "us_vram": "0x80073CE0"
+    },
+    {
+      "name": "osSetIntMask",
+      "us_vram": "0x80073E20"
+    },
+    {
+      "name": "guScale",
+      "us_vram": "0x80073EC0"
+    },
+    {
+      "name": "__sinf",
+      "us_vram": "0x80073F70"
+    },
+    {
+      "name": "osSpTaskLoad",
+      "us_vram": "0x8007423C"
+    },
+    {
+      "name": "osSpTaskStartGo",
+      "us_vram": "0x800743A4"
+    },
+    {
+      "name": "osDestroyThread",
+      "us_vram": "0x800743F0"
+    },
+    {
+      "name": "__ull_rshift",
+      "us_vram": "0x80074500"
+    },
+    {
+      "name": "__ull_rem",
+      "us_vram": "0x8007452C"
+    },
+    {
+      "name": "__ull_div",
+      "us_vram": "0x80074568"
+    },
+    {
+      "name": "__ll_lshift",
+      "us_vram": "0x800745A4"
+    },
+    {
+      "name": "__ll_rem",
+      "us_vram": "0x800745D0"
+    },
+    {
+      "name": "__ll_div",
+      "us_vram": "0x8007460C"
+    },
+    {
+      "name": "__ll_mul",
+      "us_vram": "0x80074668"
+    },
+    {
+      "name": "__ull_divremi",
+      "us_vram": "0x80074698"
+    },
+    {
+      "name": "__ll_mod",
+      "us_vram": "0x800746F8"
+    },
+    {
+      "name": "__ll_rshift",
+      "us_vram": "0x80074794"
+    },
+    {
+      "name": "__osExceptionPreamble",
+      "us_vram": "0x800747C0"
+    },
+    {
+      "name": "__ptExceptionPreamble",
+      "us_vram": "0x800747D0"
+    },
+    {
+      "name": "__ptException",
+      "us_vram": "0x800747F0"
+    },
+    {
+      "name": "__osException",
+      "us_vram": "0x80074894"
+    },
+    {
+      "name": "send_mesg",
+      "us_vram": "0x80075194"
+    },
+    {
+      "name": "handle_CpU",
+      "us_vram": "0x80075248"
+    },
+    {
+      "name": "__osEnqueueAndYield",
+      "us_vram": "0x8007527C"
+    },
+    {
+      "name": "__osEnqueueThread",
+      "us_vram": "0x80075384"
+    },
+    {
+      "name": "__osPopThread",
+      "us_vram": "0x800753CC"
+    },
+    {
+      "name": "__osNop",
+      "us_vram": "0x800753DC"
+    },
+    {
+      "name": "__osDispatchThread",
+      "us_vram": "0x800753E4"
+    },
+    {
+      "name": "__osCleanupThread",
+      "us_vram": "0x80075588"
+    },
+    {
+      "name": "__osDequeueThread",
+      "us_vram": "0x80075590"
+    },
+    {
+      "name": "guScaleF",
+      "us_vram": "0x800755E0"
+    },
+    {
+      "name": "_bzero",
+      "us_vram": "0x80075630"
+    },
+    {
+      "name": "osGbpakCheckConnector",
+      "us_vram": "0x800756D0"
+    },
+    {
+      "name": "osGbpakPower",
+      "us_vram": "0x80075B60"
+    },
+    {
+      "name": "osContInit",
+      "us_vram": "0x80075C70"
+    },
+    {
+      "name": "__osContGetInitData",
+      "us_vram": "0x80075DCC"
+    },
+    {
+      "name": "__osPackRequestData",
+      "us_vram": "0x80075E78"
+    },
+    {
+      "name": "__osSiCreateAccessQueue",
+      "us_vram": "0x80075F50"
+    },
+    {
+      "name": "__osSiGetAccess",
+      "us_vram": "0x80075FA0"
+    },
+    {
+      "name": "__osSiRelAccess",
+      "us_vram": "0x80075FE4"
+    },
+    {
+      "name": "osFlashSectorErase",
+      "us_vram": "0x80076010"
+    },
+    {
+      "name": "__createSpeedParam",
+      "us_vram": "0x80076160"
+    },
+    {
+      "name": "__osInitialize_common",
+      "us_vram": "0x800761FC"
+    },
+    {
+      "name": "__osInitialize_autodetect",
+      "us_vram": "0x8007649C"
+    },
+    {
+      "name": "__osInitialize_emu",
+      "us_vram": "0x80076598"
+    },
+    {
+      "name": "__osInitialize_msp",
+      "us_vram": "0x800767F0"
+    },
+    {
+      "name": "__checkHardware_msp",
+      "us_vram": "0x80076A08"
+    },
+    {
+      "name": "isPrintfInit",
+      "us_vram": "0x80076A70"
+    },
+    {
+      "name": "__checkHardware_isv",
+      "us_vram": "0x80076CE0"
+    },
+    {
+      "name": "__osInitialize_isv",
+      "us_vram": "0x80076ED4"
+    },
+    {
+      "name": "osPiReadIo",
+      "us_vram": "0x80077020"
+    },
+    {
+      "name": "__osPiCreateAccessQueue",
+      "us_vram": "0x80077060"
+    },
+    {
+      "name": "__osPiGetAccess",
+      "us_vram": "0x800770B0"
+    },
+    {
+      "name": "__osPiRelAccess",
+      "us_vram": "0x800770F4"
+    },
+    {
+      "name": "osCreateThread",
+      "us_vram": "0x80077180"
+    },
+    {
+      "name": "osInitRdb",
+      "us_vram": "0x80077310"
+    },
+    {
+      "name": "osContStartReadData",
+      "us_vram": "0x800773A0"
+    },
+    {
+      "name": "osEepromLongRead",
+      "us_vram": "0x80077580"
+    },
+    {
+      "name": "osVirtualToPhysical",
+      "us_vram": "0x80077610"
+    },
+    {
+      "name": "__osSetSR",
+      "us_vram": "0x80077690"
+    },
+    {
+      "name": "__osGetSR",
+      "us_vram": "0x800776A0"
+    },
+    {
+      "name": "osWritebackDCache",
+      "us_vram": "0x800776B0"
+    },
+    {
+      "name": "osGbpakInit",
+      "us_vram": "0x80077730"
+    },
+    {
+      "name": "__osPfsGetStatus",
+      "us_vram": "0x80077960"
+    },
+    {
+      "name": "__osPfsRequestOneChannel",
+      "us_vram": "0x80077A30"
+    },
+    {
+      "name": "__osPfsGetOneChannelData",
+      "us_vram": "0x80077AF4"
+    },
+    {
+      "name": "guPerspectiveF",
+      "us_vram": "0x80077B90"
+    },
+    {
+      "name": "__osSpRawStartDma",
+      "us_vram": "0x80077E20"
+    },
+    {
+      "name": "__osSiRawStartDma",
+      "us_vram": "0x80077EB0"
+    },
+    {
+      "name": "osEPiLinkHandle",
+      "us_vram": "0x80077F60"
+    },
+    {
+      "name": "kdebugserver",
+      "us_vram": "0x800781B8"
+    },
+    {
+      "name": "osViBlack",
+      "us_vram": "0x800782C0"
+    },
+    {
+      "name": "__osSiRawReadIo",
+      "us_vram": "0x80078330"
+    },
+    {
+      "name": "__osPiRawReadIo",
+      "us_vram": "0x80078380"
+    },
+    {
+      "name": "osSpTaskYield",
+      "us_vram": "0x800783D0"
+    },
+    {
+      "name": "guLookAtReflectF",
+      "us_vram": "0x800783F0"
+    },
+    {
+      "name": "guLookAtReflect",
+      "us_vram": "0x80078848"
+    },
+    {
+      "name": "guMtxIdentF",
+      "us_vram": "0x800788C0"
+    },
+    {
+      "name": "osReadHost",
+      "us_vram": "0x80078910"
+    },
+    {
+      "name": "osViSetMode",
+      "us_vram": "0x800789E0"
+    },
+    {
+      "name": "osViRepeatLine",
+      "us_vram": "0x80078A40"
+    },
+    {
+      "name": "osThreadProfileCallback",
+      "us_vram": "0x80078AB0"
+    },
+    {
+      "name": "__isExpJP",
+      "us_vram": "0x80078B50"
+    },
+    {
+      "name": "__isExp",
+      "us_vram": "0x80078B6C"
+    },
+    {
+      "name": "MonitorInitBreak",
+      "us_vram": "0x80078CB0"
+    },
+    {
+      "name": "osFlashInit",
+      "us_vram": "0x80078CD0"
+    },
+    {
+      "name": "osFlashReadId",
+      "us_vram": "0x80078DC0"
+    },
+    {
+      "name": "osPfsIsPlug",
+      "us_vram": "0x80078E90"
+    },
+    {
+      "name": "__osPfsRequestData",
+      "us_vram": "0x8007901C"
+    },
+    {
+      "name": "__osPfsGetInitData",
+      "us_vram": "0x800790D0"
+    },
+    {
+      "name": "__osProbeTLB",
+      "us_vram": "0x80079180"
+    },
+    {
+      "name": "osCreatePiManager",
+      "us_vram": "0x80079240"
+    },
+    {
+      "name": "__osDevMgrMain",
+      "us_vram": "0x800794E0"
+    },
+    {
+      "name": "__osPiRawStartDma",
+      "us_vram": "0x800798F0"
+    },
+    {
+      "name": "osGetCount",
+      "us_vram": "0x800799C0"
+    },
+    {
+      "name": "osEepromProbe",
+      "us_vram": "0x800799D0"
+    },
+    {
+      "name": "osEepromWrite",
+      "us_vram": "0x80079A50"
+    },
+    {
+      "name": "__osEepStatus",
+      "us_vram": "0x80079CC0"
+    },
+    {
+      "name": "osEepromRead",
+      "us_vram": "0x80079E70"
+    },
+    {
+      "name": "osFlashReadStatus",
+      "us_vram": "0x8007A0D0"
+    },
+    {
+      "name": "osGetMemSize",
+      "us_vram": "0x8007A160"
+    },
+    {
+      "name": "__osSumcalc",
+      "us_vram": "0x8007A280"
+    },
+    {
+      "name": "__osIdCheckSum",
+      "us_vram": "0x8007A2F4"
+    },
+    {
+      "name": "__osRepairPackId",
+      "us_vram": "0x8007A3F0"
+    },
+    {
+      "name": "__osCheckPackId",
+      "us_vram": "0x8007A740"
+    },
+    {
+      "name": "__osGetId",
+      "us_vram": "0x8007A8A4"
+    },
+    {
+      "name": "__osCheckId",
+      "us_vram": "0x8007AA50"
+    },
+    {
+      "name": "__osPfsRWInode",
+      "us_vram": "0x8007AB24"
+    },
+    {
+      "name": "osSetEventMesg",
+      "us_vram": "0x8007AE00"
+    },
+    {
+      "name": "sqrtf",
+      "us_vram": "0x8007AEC0"
+    },
+    {
+      "name": "osAfterPreNMI",
+      "us_vram": "0x8007AED0"
+    },
+    {
+      "name": "guMtxXFMF",
+      "us_vram": "0x8007AEF0"
+    },
+    {
+      "name": "guRandom",
+      "us_vram": "0x8007AFA0"
+    },
+    {
+      "name": "_Printf",
+      "us_vram": "0x8007AFD0"
+    },
+    {
+      "name": "osGbpakGetStatus",
+      "us_vram": "0x8007BCB0"
+    },
+    {
+      "name": "sprintf",
+      "us_vram": "0x8007BE30"
+    },
+    {
+      "name": "osUnmapTLBAll",
+      "us_vram": "0x8007BEB0"
+    },
+    {
+      "name": "osEPiStartDma",
+      "us_vram": "0x8007BF00"
+    },
+    {
+      "name": "__osSyncVPrintf",
+      "us_vram": "0x8007BFA0"
+    },
+    {
+      "name": "osSyncPrintf",
+      "us_vram": "0x8007BFDC"
+    },
+    {
+      "name": "rmonPrintf",
+      "us_vram": "0x8007C00C"
+    },
+    {
+      "name": "strchr",
+      "us_vram": "0x8007C060"
+    },
+    {
+      "name": "strlen",
+      "us_vram": "0x8007C0A0"
+    },
+    {
+      "name": "memcpy",
+      "us_vram": "0x8007C0C8"
+    },
+    {
+      "name": "osCreateMesgQueue",
+      "us_vram": "0x8007C100"
+    },
+    {
+      "name": "osInvalDCache",
+      "us_vram": "0x8007C130"
+    },
+    {
+      "name": "osInvalICache",
+      "us_vram": "0x8007C1E0"
+    },
+    {
+      "name": "__rmonSendFault",
+      "us_vram": "0x8007C260"
+    },
+    {
+      "name": "__rmonIOflush",
+      "us_vram": "0x8007C2D4"
+    },
+    {
+      "name": "__rmonIOputw",
+      "us_vram": "0x8007C324"
+    },
+    {
+      "name": "__rmonIOhandler",
+      "us_vram": "0x8007C390"
+    },
+    {
+      "name": "__osInitialize_kmc",
+      "us_vram": "0x8007C6A0"
+    },
+    {
+      "name": "__checkHardware_kmc",
+      "us_vram": "0x8007C8B8"
+    },
+    {
+      "name": "osEepromLongWrite",
+      "us_vram": "0x8007C920"
+    },
+    {
+      "name": "__osSpDeviceBusy",
+      "us_vram": "0x8007CA30"
+    },
+    {
+      "name": "__osSiDeviceBusy",
+      "us_vram": "0x8007CA60"
+    },
+    {
+      "name": "guTranslateF",
+      "us_vram": "0x8007CAA0"
+    },
+    {
+      "name": "osJamMesg",
+      "us_vram": "0x8007CAF0"
+    },
+    {
+      "name": "osSetThreadPri",
+      "us_vram": "0x8007CC40"
+    },
+    {
+      "name": "osGetThreadPri",
+      "us_vram": "0x8007CD20"
+    },
+    {
+      "name": "__osEPiRawReadIo",
+      "us_vram": "0x8007CD40"
+    },
+    {
+      "name": "osViSwapBuffer",
+      "us_vram": "0x8007CEA0"
+    },
+    {
+      "name": "guMtxCatF",
+      "us_vram": "0x8007CF00"
+    },
+    {
+      "name": "guMtxCatL",
+      "us_vram": "0x8007CFF0"
+    },
+    {
+      "name": "guMtxL2F",
+      "us_vram": "0x8007D060"
+    },
+    {
+      "name": "__osEPiRawStartDma",
+      "us_vram": "0x8007D0D0"
+    },
+    {
+      "name": "osSpTaskYielded",
+      "us_vram": "0x8007D2B0"
+    },
+    {
+      "name": "guRotateRPYF",
+      "us_vram": "0x8007D310"
+    },
+    {
+      "name": "_bcmp",
+      "us_vram": "0x8007D4A0"
+    },
+    {
+      "name": "osGetTime",
+      "us_vram": "0x8007D5C0"
+    },
+    {
+      "name": "__osTimerServicesInit",
+      "us_vram": "0x8007D650"
+    },
+    {
+      "name": "__osTimerInterrupt",
+      "us_vram": "0x8007D6DC"
+    },
+    {
+      "name": "__osSetTimerIntr",
+      "us_vram": "0x8007D920"
+    },
+    {
+      "name": "__osInsertTimer",
+      "us_vram": "0x8007D9C0"
+    },
+    {
+      "name": "guRotateF",
+      "us_vram": "0x8007DB50"
+    },
+    {
+      "name": "__osSetGlobalIntMask",
+      "us_vram": "0x8007DD20"
+    },
+    {
+      "name": "osAiSetFrequency",
+      "us_vram": "0x8007DD70"
+    },
+    {
+      "name": "osDpGetCounters",
+      "us_vram": "0x8007DEC0"
+    },
+    {
+      "name": "__osGetActiveQueue",
+      "us_vram": "0x8007DF00"
+    },
+    {
+      "name": "guNormalize",
+      "us_vram": "0x8007DF20"
+    },
+    {
+      "name": "__osSetCompare",
+      "us_vram": "0x8007DF80"
+    },
+    {
+      "name": "osAiGetStatus",
+      "us_vram": "0x8007DF90"
+    },
+    {
+      "name": "osDpSetStatus",
+      "us_vram": "0x8007DFA0"
+    },
+    {
+      "name": "_bcopy",
+      "us_vram": "0x8007DFB0"
+    },
+    {
+      "name": "__osResetGlobalIntMask",
+      "us_vram": "0x8007E2C0"
+    },
+    {
+      "name": "guOrthoF",
+      "us_vram": "0x8007E320"
+    },
+    {
+      "name": "guOrtho",
+      "us_vram": "0x8007E474"
+    },
+    {
+      "name": "__osDisableInt",
+      "us_vram": "0x8007E4E0"
+    },
+    {
+      "name": "__osRestoreInt",
+      "us_vram": "0x8007E550"
+    },
+    {
+      "name": "__osViInit",
+      "us_vram": "0x8007E570"
+    },
+    {
+      "name": "__osViSwapContext",
+      "us_vram": "0x8007E690"
+    },
+    {
+      "name": "osPiGetCmdQueue",
+      "us_vram": "0x8007E990"
+    },
+    {
+      "name": "__cosf",
+      "us_vram": "0x8007E9C0"
+    },
+    {
+      "name": "osEPiReadIo",
+      "us_vram": "0x8007EB30"
+    },
+    {
+      "name": "osViSetSpecialFeatures",
+      "us_vram": "0x8007EB80"
+    },
+    {
+      "name": "osFlashWriteArray",
+      "us_vram": "0x8007ECE0"
+    },
+    {
+      "name": "osSetTime",
+      "us_vram": "0x8007EE40"
+    },
+    {
+      "name": "osFlashClearStatus",
+      "us_vram": "0x8007EE70"
+    },
+    {
+      "name": "osViSetEvent",
+      "us_vram": "0x8007EEC0"
+    },
+    {
+      "name": "__osRdbSend",
+      "us_vram": "0x8007EF20"
+    },
+    {
+      "name": "osFlashWriteBuffer",
+      "us_vram": "0x8007F1E0"
+    },
+    {
+      "name": "osCartRomInit",
+      "us_vram": "0x8007F270"
+    },
+    {
+      "name": "osGbpakReadId",
+      "us_vram": "0x8007F3D0"
+    },
+    {
+      "name": "__rmonExecute",
+      "us_vram": "0x8007F68C"
+    },
+    {
+      "name": "__rmonWriteWordTo",
+      "us_vram": "0x8007F720"
+    },
+    {
+      "name": "__rmonReadWordAt",
+      "us_vram": "0x8007F768"
+    },
+    {
+      "name": "__rmonMemcpy",
+      "us_vram": "0x8007F7BC"
+    },
+    {
+      "name": "__rmonCopyWords",
+      "us_vram": "0x8007F7F0"
+    },
+    {
+      "name": "__rmonReadMem",
+      "us_vram": "0x8007F860"
+    },
+    {
+      "name": "__rmonWriteMem",
+      "us_vram": "0x8007FA5C"
+    },
+    {
+      "name": "__rmonListProcesses",
+      "us_vram": "0x8007FCA8"
+    },
+    {
+      "name": "__rmonLoadProgram",
+      "us_vram": "0x8007FD28"
+    },
+    {
+      "name": "__rmonGetExeName",
+      "us_vram": "0x8007FD34"
+    },
+    {
+      "name": "__rmonGetRegionCount",
+      "us_vram": "0x8007FDDC"
+    },
+    {
+      "name": "__rmonGetRegions",
+      "us_vram": "0x8007FE4C"
+    },
+    {
+      "name": "__rmonSendHeader",
+      "us_vram": "0x80080040"
+    },
+    {
+      "name": "__rmonSendReply",
+      "us_vram": "0x800800D8"
+    },
+    {
+      "name": "__rmonSendData",
+      "us_vram": "0x80080180"
+    },
+    {
+      "name": "rmonMain",
+      "us_vram": "0x800802A0"
+    },
+    {
+      "name": "__rmonMaskIdleThreadInts",
+      "us_vram": "0x80080440"
+    },
+    {
+      "name": "__rmonGetTCB",
+      "us_vram": "0x800804BC"
+    },
+    {
+      "name": "__rmonStopUserThreads",
+      "us_vram": "0x8008053C"
+    },
+    {
+      "name": "__rmonListThreads",
+      "us_vram": "0x80080644"
+    },
+    {
+      "name": "__rmonGetThreadStatus",
+      "us_vram": "0x80080778"
+    },
+    {
+      "name": "__rmonThreadStatus",
+      "us_vram": "0x80080A6C"
+    },
+    {
+      "name": "__rmonStopThread",
+      "us_vram": "0x80080AD4"
+    },
+    {
+      "name": "__rmonRunThread",
+      "us_vram": "0x80080C1C"
+    },
+    {
+      "name": "__rmonSetFault",
+      "us_vram": "0x80080EC0"
+    },
+    {
+      "name": "__rmonInit",
+      "us_vram": "0x80080F0C"
+    },
+    {
+      "name": "__rmonPanic",
+      "us_vram": "0x80080FE8"
+    },
+    {
+      "name": "__rmonSetComm",
+      "us_vram": "0x80081008"
+    },
+    {
+      "name": "__rmonRCPrunning",
+      "us_vram": "0x80081050"
+    },
+    {
+      "name": "__rmonIdleRCP",
+      "us_vram": "0x80081074"
+    },
+    {
+      "name": "__rmonStepRCP",
+      "us_vram": "0x800810B8"
+    },
+    {
+      "name": "__rmonRunRCP",
+      "us_vram": "0x800810CC"
+    },
+    {
+      "name": "__rmonSetBreak",
+      "us_vram": "0x80081284"
+    },
+    {
+      "name": "__rmonListBreak",
+      "us_vram": "0x80081444"
+    },
+    {
+      "name": "__rmonClearBreak",
+      "us_vram": "0x80081450"
+    },
+    {
+      "name": "__rmonGetBranchTarget",
+      "us_vram": "0x800815AC"
+    },
+    {
+      "name": "__rmonSetSingleStep",
+      "us_vram": "0x80081868"
+    },
+    {
+      "name": "__rmonGetExceptionStatus",
+      "us_vram": "0x8008192C"
+    },
+    {
+      "name": "__rmonHitBreak",
+      "us_vram": "0x80081A28"
+    },
+    {
+      "name": "__rmonHitSpBreak",
+      "us_vram": "0x80081A58"
+    },
+    {
+      "name": "__rmonHitCpuFault",
+      "us_vram": "0x80081AC0"
+    },
+    {
+      "name": "__osSpRawReadIo",
+      "us_vram": "0x80081BD0"
+    },
+    {
+      "name": "__rmonGetGRegisters",
+      "us_vram": "0x80081E88"
+    },
+    {
+      "name": "__rmonSetGRegisters",
+      "us_vram": "0x80081FE4"
+    },
+    {
+      "name": "__rmonGetFRegisters",
+      "us_vram": "0x80082134"
+    },
+    {
+      "name": "__rmonSetFRegisters",
+      "us_vram": "0x800821EC"
+    },
+    {
+      "name": "__rmonGetSRegs",
+      "us_vram": "0x80082304"
+    },
+    {
+      "name": "__rmonSetSRegs",
+      "us_vram": "0x80082464"
+    },
+    {
+      "name": "__rmonGetVRegs",
+      "us_vram": "0x80082574"
+    },
+    {
+      "name": "__rmonSetVRegs",
+      "us_vram": "0x8008268C"
+    },
+    {
+      "name": "__rmonGetRegisterContents",
+      "us_vram": "0x80082750"
+    },
+    {
+      "name": "__osPfsSelectBank",
+      "us_vram": "0x80082820"
+    },
+    {
+      "name": "__osSetFpcCsr",
+      "us_vram": "0x800828A0"
+    },
+    {
+      "name": "osAiGetLength",
+      "us_vram": "0x800828B0"
+    },
+    {
+      "name": "osEPiWriteIo",
+      "us_vram": "0x800828C0"
+    },
+    {
+      "name": "osPiWriteIo",
+      "us_vram": "0x80082910"
+    },
+    {
+      "name": "osMapTLBRdb",
+      "us_vram": "0x80082950"
+    },
+    {
+      "name": "osYieldThread",
+      "us_vram": "0x800829B0"
+    },
+    {
+      "name": "guTranslate",
+      "us_vram": "0x80082A00"
+    },
+    {
+      "name": "__osContRamWrite",
+      "us_vram": "0x80082AD0"
+    },
+    {
+      "name": "__osContRamRead",
+      "us_vram": "0x80082D20"
+    },
+    {
+      "name": "__osContAddressCrc",
+      "us_vram": "0x80082F50"
+    },
+    {
+      "name": "__osContDataCrc",
+      "us_vram": "0x80083020"
+    },
+    {
+      "name": "__osGetCause",
+      "us_vram": "0x800830C0"
+    },
+    {
+      "name": "__osEPiRawWriteIo",
+      "us_vram": "0x800830D0"
+    },
+    {
+      "name": "osSetTimer",
+      "us_vram": "0x80083230"
+    },
+    {
+      "name": "_Ldtob",
+      "us_vram": "0x800833C0"
+    },
+    {
+      "name": "ldiv",
+      "us_vram": "0x80083ED0"
+    },
+    {
+      "name": "lldiv",
+      "us_vram": "0x80083F54"
+    },
+    {
+      "name": "_Litob",
+      "us_vram": "0x80084060"
+    },
+    {
+      "name": "__osSiRawWriteIo",
+      "us_vram": "0x80084300"
+    },
+    {
+      "name": "__osPiRawWriteIo",
+      "us_vram": "0x80084350"
+    },
+    {
+      "name": "__osSpRawWriteIo",
+      "us_vram": "0x800843A0"
+    },
+    {
+      "name": "__osSpSetStatus",
+      "us_vram": "0x800843F0"
+    },
+    {
+      "name": "__osSpGetStatus",
+      "us_vram": "0x80084400"
+    },
+    {
+      "name": "osCreateViManager",
+      "us_vram": "0x80084420"
+    },
+    {
+      "name": "__osViGetCurrentContext",
+      "us_vram": "0x80084730"
+    },
+    {
+      "name": "osWritebackDCacheAll",
+      "us_vram": "0x80084740"
+    },
+    {
+      "name": "guMtxF2L",
+      "us_vram": "0x80084780"
+    },
+    {
+      "name": "osStartThread",
+      "us_vram": "0x800847F0"
+    },
+    {
+      "name": "osViSetXScale",
+      "us_vram": "0x80084940"
+    },
+    {
+      "name": "osViSetYScale",
+      "us_vram": "0x80084A50"
+    },
+    {
+      "name": "__d_to_ll",
+      "us_vram": "0x80084AA0"
+    },
+    {
+      "name": "__f_to_ll",
+      "us_vram": "0x80084ABC"
+    },
+    {
+      "name": "__d_to_ull",
+      "us_vram": "0x80084AD8"
+    },
+    {
+      "name": "__f_to_ull",
+      "us_vram": "0x80084B78"
+    },
+    {
+      "name": "__ll_to_d",
+      "us_vram": "0x80084C14"
+    },
+    {
+      "name": "__ll_to_f",
+      "us_vram": "0x80084C2C"
+    },
+    {
+      "name": "__ull_to_d",
+      "us_vram": "0x80084C44"
+    },
+    {
+      "name": "__ull_to_f",
+      "us_vram": "0x80084C78"
+    },
+    {
+      "name": "osGbpakReadWrite",
+      "us_vram": "0x80084CB0"
+    },
+    {
+      "name": "__osGbpakSetBank",
+      "us_vram": "0x80084E80"
+    },
+    {
+      "name": "osViGetCurrentFramebuffer",
+      "us_vram": "0x80084F50"
+    },
+    {
+      "name": "__osSpSetPc",
+      "us_vram": "0x80084F90"
+    },
+    {
+      "name": "osFlashReadArray",
+      "us_vram": "0x80084FC0"
+    },
+    {
+      "name": "__osFlashGetAddr",
+      "us_vram": "0x80085160"
+    },
+    {
+      "name": "__osSetWatchLo",
+      "us_vram": "0x80085190"
+    }
+  ]
+}
