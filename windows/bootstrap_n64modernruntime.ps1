@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.4"
+$BootstrapVersion = "2026-09-25.5"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -165,6 +165,28 @@ endif()
     elseif ($RuntimeCMakeText -notmatch 'if \(NOT MSVC\)[\s\S]*-Wno-unused-parameter') {
         throw "Could not find expected warning block in $RuntimeCMake"
     }
+}
+
+# o1heap requires ISO C99 or newer and checks __STDC_VERSION__. MSVC does not
+# enable a modern C language mode by default, so compile only this C source as
+# C17. Visual Studio 2022 supports /std:c17.
+$LibrecompCMake = Join-Path $SourceDir "librecomp\CMakeLists.txt"
+$LibrecompText = Get-Content -LiteralPath $LibrecompCMake -Raw
+$O1HeapMarker = "# Aero-Stadium-2-FR MSVC o1heap C17 compatibility"
+$O1HeapPatch = @"
+
+# Aero-Stadium-2-FR MSVC o1heap C17 compatibility
+if (MSVC)
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/o1heap/o1heap/o1heap.c"
+        PROPERTIES COMPILE_OPTIONS "/std:c17"
+    )
+endif()
+"@
+
+if (-not $LibrecompText.Contains($O1HeapMarker)) {
+    Add-Content -LiteralPath $LibrecompCMake -Value $O1HeapPatch -Encoding UTF8
+    Write-Host "Applied MSVC C17 compatibility patch: o1heap.c"
 }
 
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
