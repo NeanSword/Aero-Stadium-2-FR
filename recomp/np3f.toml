@@ -27,6 +27,13 @@ instruction = [
     # direct MMIO load with "addiu $t7, $zero, 0".
     { func = "func_80064CC0", vram = 0x80064CD8, value = 0x240F0000 },
 
+    # The same helper then reads ROM address 0xB0000E38 only to compare
+    # its low 16 bits against 0x828A. Aero Stadium 2 already validates the
+    # exact NP3F ROM before startup, so materialize that expected value instead
+    # of dereferencing the raw cartridge address from generated host code.
+    # ori $t0, $zero, 0x828A
+    { func = "func_80064CC0", vram = 0x80064CF0, value = 0x3408828A },
+
     { func = "func_80021460", vram = 0x80021470, value = 0x3C1F8002 },
     { func = "func_80021460", vram = 0x80021474, value = 0x37FF1478 },
 
