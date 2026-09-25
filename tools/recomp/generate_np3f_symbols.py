@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.8"
+GENERATOR_VERSION = "2026-09-25.9"
 
 try:
     import yaml
@@ -370,6 +370,36 @@ def section_for_asm(path: Path) -> str:
     return f"fragment{int(match.group(1))}" if match else "text"
 
 
+def collect_hasm_expected_vrams(config: dict[str, Any]) -> dict[str, int]:
+    expected: dict[str, int] = {}
+    segments = config.get("segments")
+    if not isinstance(segments, list):
+        return expected
+
+    for segment in segments:
+        if not isinstance(segment, dict) or str(segment.get("name", "")) != "text":
+            continue
+        if "start" not in segment or "vram" not in segment:
+            continue
+
+        seg_rom = parse_int(segment["start"])
+        seg_vram = parse_int(segment["vram"])
+        subsegments = segment.get("subsegments")
+        if not isinstance(subsegments, list):
+            continue
+
+        for subsegment in subsegments:
+            if not isinstance(subsegment, list) or len(subsegment) < 3:
+                continue
+            if str(subsegment[1]) != "hasm":
+                continue
+            sub_rom = parse_int(subsegment[0])
+            source_stem = Path(str(subsegment[2])).stem
+            expected[source_stem] = seg_vram + (sub_rom - seg_rom)
+
+    return expected
+
+
 def sanitize_c_identifier(name: str) -> str:
     name = name.replace(".", "_").replace("$", "_")
     name = re.sub(r"[^A-Za-z0-9_]", "_", name)
@@ -380,9 +410,14 @@ def sanitize_c_identifier(name: str) -> str:
     return name
 
 
-def parse_asm_file(path: Path, section_name: str) -> list[Function]:
+def parse_asm_file(
+    path: Path,
+    section_name: str,
+    expected_hasm_vram: int | None = None,
+) -> list[Function]:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     found: list[Function] = []
+    file_vram_delta: int | None = None
 
     current_name: str | None = None
     current_start: int | None = None
@@ -428,7 +463,10 @@ def parse_asm_file(path: Path, section_name: str) -> list[Function]:
         if current_name is not None and (in_text or not saw_section_directive):
             instr_match = INSTR_RE.search(line)
             if instr_match:
-                vram = int(instr_match.group(2), 16)
+                raw_vram = int(instr_match.group(2), 16)
+                if expected_hasm_vram is not None and file_vram_delta is None:
+                    file_vram_delta = expected_hasm_vram - raw_vram
+                vram = raw_vram + (file_vram_delta or 0)
                 if current_start is None:
                     current_start = vram
                 if last_vram is None or vram >= last_vram:
@@ -639,10 +677,32 @@ def main() -> int:
     funcs: list[Function] = []
     files_without_funcs: list[str] = []
     unlabeled_code_chunks: list[UnlabeledCodeChunk] = []
+    hasm_expected_vrams = collect_hasm_expected_vrams(config)
+    hasm_vram_relocations: list[dict[str, Any]] = []
 
     for asm_path in asm_files:
         section_name = section_for_asm(asm_path)
-        parsed = parse_asm_file(asm_path, section_name)
+        expected_hasm_vram = hasm_expected_vrams.get(asm_path.stem)
+        parsed = parse_asm_file(asm_path, section_name, expected_hasm_vram)
+        if expected_hasm_vram is not None and parsed:
+            raw_first: int | None = None
+            for raw_line in asm_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                raw_match = INSTR_RE.search(raw_line)
+                if raw_match:
+                    raw_first = int(raw_match.group(2), 16)
+                    break
+            if raw_first is not None:
+                delta = expected_hasm_vram - raw_first
+                if delta != 0:
+                    hasm_vram_relocations.append(
+                        {
+                            "path": asm_path.as_posix(),
+                            "stem": asm_path.stem,
+                            "expected_vram": expected_hasm_vram,
+                            "raw_first_vram": raw_first,
+                            "delta": delta,
+                        }
+                    )
         if parsed:
             funcs.extend(parsed)
         else:
@@ -934,6 +994,7 @@ def main() -> int:
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
         "verified_size_overrides": verified_size_overrides,
+        "hasm_vram_relocations": hasm_vram_relocations,
         "manual_functions_injected": manual_functions_injected,
         "relocated_libultra": {
             "symbol_table": str(args.libultra_symbols),
@@ -974,6 +1035,15 @@ def main() -> int:
     print(f"  rejected functions       : {len(rejected)}")
     print(f"  verified name overrides  : {len(verified_name_overrides)}")
     print(f"  verified size overrides  : {len(verified_size_overrides)}")
+    print(f"  relocated hasm sources   : {len(hasm_vram_relocations)}")
+    for relocation in hasm_vram_relocations:
+        sign = "+" if relocation["delta"] >= 0 else "-"
+        print(
+            "    - "
+            f"{relocation['stem']}: "
+            f"{sign}0x{abs(relocation['delta']):X} -> "
+            f"0x{relocation['expected_vram']:08X}"
+        )
     for override in verified_size_overrides:
         print(
             "    - "
