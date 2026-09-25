@@ -8,31 +8,50 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(NOT DEFINED NP3F_GENERATED_LIB)
-    message(FATAL_ERROR "NP3F_GENERATED_LIB was not provided.")
-endif()
-if(NOT DEFINED NP3F_GENERATED_DIR)
-    message(FATAL_ERROR "NP3F_GENERATED_DIR was not provided.")
-endif()
-if(NOT DEFINED N64MODERNRUNTIME_SOURCE_DIR)
-    message(FATAL_ERROR "N64MODERNRUNTIME_SOURCE_DIR was not provided.")
-endif()
+foreach(required_var
+    NP3F_GENERATED_LIB
+    NP3F_GENERATED_DIR
+    N64MODERNRUNTIME_SOURCE_DIR
+    N64MODERNRUNTIME_BUILD_DIR
+)
+    if(NOT DEFINED ${required_var})
+        message(FATAL_ERROR "${required_var} was not provided.")
+    endif()
+endforeach()
 
 file(TO_CMAKE_PATH "${NP3F_GENERATED_LIB}" NP3F_GENERATED_LIB)
 file(TO_CMAKE_PATH "${NP3F_GENERATED_DIR}" NP3F_GENERATED_DIR)
 file(TO_CMAKE_PATH "${N64MODERNRUNTIME_SOURCE_DIR}" N64MODERNRUNTIME_SOURCE_DIR)
+file(TO_CMAKE_PATH "${N64MODERNRUNTIME_BUILD_DIR}" N64MODERNRUNTIME_BUILD_DIR)
 
 if(NOT EXISTS "${NP3F_GENERATED_LIB}")
     message(FATAL_ERROR "Generated NP3F library not found: ${NP3F_GENERATED_LIB}")
 endif()
-if(NOT EXISTS "${N64MODERNRUNTIME_SOURCE_DIR}/CMakeLists.txt")
-    message(FATAL_ERROR "N64ModernRuntime source not found: ${N64MODERNRUNTIME_SOURCE_DIR}")
+
+if(NOT EXISTS "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include/recomp.h")
+    message(FATAL_ERROR "N64ModernRuntime source tree is incomplete: ${N64MODERNRUNTIME_SOURCE_DIR}")
 endif()
 
-add_subdirectory("${N64MODERNRUNTIME_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/runtime")
+if(NOT EXISTS "${N64MODERNRUNTIME_BUILD_DIR}")
+    message(FATAL_ERROR "N64ModernRuntime build directory not found: ${N64MODERNRUNTIME_BUILD_DIR}")
+endif()
 
-add_library(AeroNP3FGenerated STATIC IMPORTED GLOBAL)
-set_target_properties(AeroNP3FGenerated PROPERTIES IMPORTED_LOCATION "${NP3F_GENERATED_LIB}")
+file(GLOB_RECURSE N64MODERNRUNTIME_LIBS
+    "${N64MODERNRUNTIME_BUILD_DIR}/*/Release/*.lib"
+    "${N64MODERNRUNTIME_BUILD_DIR}/Release/*.lib"
+)
+
+list(FILTER N64MODERNRUNTIME_LIBS EXCLUDE REGEX "AeroStadium2")
+list(LENGTH N64MODERNRUNTIME_LIBS RUNTIME_LIB_COUNT)
+
+if(RUNTIME_LIB_COUNT EQUAL 0)
+    message(FATAL_ERROR "No prebuilt N64ModernRuntime libraries found under ${N64MODERNRUNTIME_BUILD_DIR}")
+endif()
+
+message(STATUS "Using ${RUNTIME_LIB_COUNT} prebuilt N64ModernRuntime libraries")
+foreach(runtime_lib IN LISTS N64MODERNRUNTIME_LIBS)
+    message(STATUS "  runtime lib: ${runtime_lib}")
+endforeach()
 
 add_executable(AeroStadium2
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
@@ -44,11 +63,18 @@ target_include_directories(AeroStadium2 PRIVATE
     "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/ultramodern/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/librecomp/include"
+    "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty"
+    "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/concurrentqueue"
+    "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/o1heap"
 )
 
-target_link_libraries(AeroStadium2 PRIVATE AeroNP3FGenerated librecomp ultramodern)
+target_link_libraries(AeroStadium2 PRIVATE
+    "${NP3F_GENERATED_LIB}"
+    ${N64MODERNRUNTIME_LIBS}
+)
 
 if(MSVC)
+    target_compile_definitions(AeroStadium2 PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
     target_link_options(AeroStadium2 PRIVATE "/WHOLEARCHIVE:${NP3F_GENERATED_LIB}")
 endif()
 
