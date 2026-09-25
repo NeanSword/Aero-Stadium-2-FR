@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.10"
+GENERATOR_VERSION = "2026-09-26.1"
 
 try:
     import yaml
@@ -536,6 +536,67 @@ def read_be_u32(data: bytes, offset: int) -> int:
     return int.from_bytes(data[offset:offset + 4], "big")
 
 
+def inject_fragment_entry_trampolines(
+    rom: bytes,
+    sections: dict[str, CodeSection],
+    funcs: list[Function],
+) -> list[dict[str, Any]]:
+    """Recover the 8-byte callable stub at the start of each Stadium fragment.
+
+    Pokémon Stadium 2 fragment headers are 0x20 bytes long. The literal
+    "FRAGMENT" magic begins at +0x08, leaving the first two MIPS words as a
+    callable entry trampoline at section.vram + 0x00. Splat keeps the whole
+    header as textbin, so no glabel is emitted for this entrypoint unless we
+    inject it here.
+    """
+    known_starts = {(func.section, func.vram) for func in funcs}
+    injected: list[dict[str, Any]] = []
+
+    for section_name, section in sorted(sections.items(), key=lambda item: item[1].rom):
+        if not section_name.startswith("fragment"):
+            continue
+
+        header_start = section.rom
+        if header_start < 0 or header_start + 0x10 > len(rom):
+            continue
+
+        if rom[header_start + 8:header_start + 16] != b"FRAGMENT":
+            continue
+
+        key = (section_name, section.vram)
+        if key in known_starts:
+            continue
+
+        first_word = read_be_u32(rom, header_start)
+        second_word = read_be_u32(rom, header_start + 4)
+        name = f"{section_name}_entry"
+
+        funcs.append(
+            Function(
+                original_name=name,
+                name=name,
+                vram=section.vram,
+                size=8,
+                asm_path=f"fragment-entry:{section_name}",
+                section=section_name,
+            )
+        )
+        known_starts.add(key)
+        injected.append(
+            {
+                "section": section_name,
+                "name": name,
+                "rom": header_start,
+                "vram": section.vram,
+                "size": 8,
+                "first_word": first_word,
+                "second_word": second_word,
+            }
+        )
+
+    return injected
+
+
 def inject_missing_leaf_jal_targets(
     rom: bytes,
     sections: dict[str, CodeSection],
@@ -726,6 +787,12 @@ def main() -> int:
         if old is None or func.size > old.size:
             unique_by_key[key] = func
     funcs = list(unique_by_key.values())
+
+    fragment_entry_trampolines = inject_fragment_entry_trampolines(
+        rom_bytes,
+        sections,
+        funcs,
+    )
 
     manual_functions_injected: list[dict[str, Any]] = []
     known_starts = {(func.section, func.vram) for func in funcs}
@@ -1003,6 +1070,7 @@ def main() -> int:
         "verified_name_overrides": verified_name_overrides,
         "verified_size_overrides": verified_size_overrides,
         "hasm_vram_relocations": hasm_vram_relocations,
+        "fragment_entry_trampolines": fragment_entry_trampolines,
         "manual_functions_injected": manual_functions_injected,
         "relocated_libultra": {
             "symbol_table": str(args.libultra_symbols),
@@ -1058,6 +1126,14 @@ def main() -> int:
             f"0x{override['vram']:08X}: "
             f"0x{override['detected_size']:X} -> "
             f"0x{override['verified_size']:X}"
+        )
+    print(f"  fragment entry trampolines: {len(fragment_entry_trampolines)}")
+    for entry in fragment_entry_trampolines:
+        print(
+            "    - "
+            f"{entry['section']}: "
+            f"ROM 0x{entry['rom']:X} VRAM 0x{entry['vram']:08X} "
+            f"words 0x{entry['first_word']:08X} 0x{entry['second_word']:08X}"
         )
     print(f"  manual funcs injected    : {len(manual_functions_injected)}")
     for manual in manual_functions_injected:
