@@ -36,6 +36,7 @@ $CMakeExe = (Get-Command cmake -ErrorAction Stop).Source
 $GeneratedLibCMake = $GeneratedLib.FullName.Replace("\", "/")
 $GeneratedDirCMake = $GeneratedDir.Replace("\", "/")
 $RuntimeSourceCMake = $RuntimeSource.Replace("\", "/")
+$RuntimeBuildCMake = $RuntimeBuild.Replace("\", "/")
 
 Write-Host "Generated NP3F library : $($GeneratedLib.FullName)"
 Write-Host "Runtime source         : $RuntimeSource"
