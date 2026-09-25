@@ -3,7 +3,9 @@ param(
 
     [string]$Rom = "",
 
-    [switch]$DisassembleAll
+    [switch]$DisassembleAll,
+
+    [switch]$AllowRelocatedStarts
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,7 +50,12 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "[2/3] Validating candidate fragment map..."
-python (Join-Path $ToolsDir "np3f\validate_candidate_yaml.py") $CandidatePath
+$ValidateArgs = @($CandidatePath)
+if ($AllowRelocatedStarts) {
+    $ValidateArgs += "--allow-relocated-starts"
+    Write-Host "Validation mode: relocated fragment starts allowed"
+}
+python (Join-Path $ToolsDir "np3f\validate_candidate_yaml.py") @ValidateArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Candidate YAML validation failed."
 }
