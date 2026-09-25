@@ -58,17 +58,30 @@ target_compile_definitions(AeroNP3FGenerated PRIVATE
     _CRT_SECURE_NO_WARNINGS
 )
 
+set(NP3F_MEMORY_COMPAT_HEADER
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_memory_compat.h"
+)
+
+if(NOT EXISTS "${NP3F_MEMORY_COMPAT_HEADER}")
+    message(FATAL_ERROR "Missing NP3F memory compatibility header: ${NP3F_MEMORY_COMPAT_HEADER}")
+endif()
+
 if(MSVC)
     # This target is a syntax/codegen smoke build, not the final optimized host.
     # /Od keeps the first full compile substantially lighter while /bigobj
     # gives the large generated translation units plenty of section headroom.
     target_compile_options(AeroNP3FGenerated PRIVATE
+        "/FI${NP3F_MEMORY_COMPAT_HEADER}"
         /Od
         /bigobj
         /W1
         /wd4101
         /wd4244
         /wd4267
+    )
+else()
+    target_compile_options(AeroNP3FGenerated PRIVATE
+        -include "${NP3F_MEMORY_COMPAT_HEADER}"
     )
 endif()
 
