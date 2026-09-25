@@ -2,7 +2,7 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-25.1"
+$RunnerVersion = "2026-09-25.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -52,7 +52,8 @@ if ($ConfigureExit -ne 0) { exit $ConfigureExit }
 
 Write-Host ""
 Write-Host "[2/2] Linking AeroStadium2.exe..."
-$BuildArgumentLine = '--build "{0}" --config Release --target AeroStadium2 --parallel' -f $BuildDir
+$env:MSBUILDDISABLENODEREUSE = "1"
+$BuildArgumentLine = '--build "{0}" --config Release --target AeroStadium2 -- /m:1 /nodeReuse:false' -f $BuildDir
 $BuildProcess = Start-Process -FilePath $CMakeExe -ArgumentList $BuildArgumentLine -WorkingDirectory $RepoRoot -NoNewWindow -Wait -PassThru -RedirectStandardOutput $BuildStdoutLog -RedirectStandardError $BuildStderrLog
 $BuildExit = $BuildProcess.ExitCode
 $BuildStdout = if (Test-Path $BuildStdoutLog) { @(Get-Content $BuildStdoutLog) } else { @() }
