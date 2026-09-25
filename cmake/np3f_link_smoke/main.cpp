@@ -14,6 +14,9 @@
 namespace aerostadium2 {
 void register_np3f_overlays();
 void run_np3f_runtime_probe(const std::u8string& game_id);
+void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx);
+void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx);
+void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx);
 }
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
@@ -152,9 +155,9 @@ int main() {
         .decompression_routine = nullptr,
         .has_compressed_code = false,
         .entrypoint_address = get_entrypoint_address(),
-        .entrypoint = recomp_entrypoint,
-        .thread_create_callback = nullptr,
-        .on_init_callback = nullptr,
+        .entrypoint = aerostadium2::traced_np3f_entrypoint,
+        .thread_create_callback = aerostadium2::trace_np3f_thread_create,
+        .on_init_callback = aerostadium2::trace_np3f_on_init,
     };
 
     recomp::register_game(np3f_game);
