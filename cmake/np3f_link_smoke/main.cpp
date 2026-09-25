@@ -44,7 +44,7 @@ std::filesystem::path select_rom_file() {
         L"ROM Nintendo 64 (*.z64;*.n64;*.v64)\0*.z64;*.n64;*.v64\0"
         L"Tous les fichiers (*.*)\0*.*\0\0";
     dialog.lpstrFile = file_name;
-    dialog.nMaxFile = static_cast<DWORD>(std::size(file_name));
+    dialog.nMaxFile = static_cast<DWORD>(_countof(file_name));
     dialog.lpstrTitle = L"Selectionner la ROM francaise de Pokemon Stadium 2";
     dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
 
