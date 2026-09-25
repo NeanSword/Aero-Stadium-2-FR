@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.5"
+GENERATOR_VERSION = "2026-09-25.6"
 
 try:
     import yaml
@@ -74,6 +74,17 @@ RSP_CPU_EXCLUDED_SUBSEGMENTS = {"pre_main"}
 KNOWN_NP3F_FUNCTION_NAMES: dict[tuple[str, int], str] = {
     ("text", 0x8000B680): "set_watch_lohi",
     ("text", 0x8000B690): "trigger_fault",
+}
+
+# Some hand-written routines contain inline literal words after their actual
+# return sequence. Splat/spimdisasm can decode those literals as instructions
+# when generating a symbol-clean disassembly, which makes N64Recomp try to
+# compile data. Keep the executable extent explicit for these verified NP3F
+# routines while leaving the literal bytes in ROM for PC-relative data access.
+KNOWN_NP3F_FUNCTION_SIZES: dict[tuple[str, int], int] = {
+    # FR ROM 0x22060: executable code ends at VRAM 0x8002154C.
+    # The following words C7D7E3E7 F1F3F5F7 are inline data, not CPU code.
+    ("text", 0x80021460): 0xEC,
 }
 
 
@@ -639,8 +650,22 @@ def main() -> int:
 
     valid: list[Function] = []
     rejected: list[dict[str, Any]] = []
+    verified_size_overrides: list[dict[str, Any]] = []
 
     for func in funcs:
+        verified_size = KNOWN_NP3F_FUNCTION_SIZES.get((func.section, func.vram))
+        if verified_size is not None and func.size != verified_size:
+            verified_size_overrides.append(
+                {
+                    "section": func.section,
+                    "vram": func.vram,
+                    "name": func.original_name,
+                    "detected_size": func.size,
+                    "verified_size": verified_size,
+                }
+            )
+            func.size = verified_size
+
         exclusion = function_hits_exclusion(func, cpu_exclusions)
         if exclusion is not None:
             rejected.append(
@@ -865,6 +890,7 @@ def main() -> int:
         "duplicate_function_names": sorted(name for name, count in name_counts.items() if count > 1),
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
+        "verified_size_overrides": verified_size_overrides,
         "relocated_libultra": {
             "symbol_table": str(args.libultra_symbols),
             "us_rom_start": US_LIBULTRA_ROM_START,
@@ -903,6 +929,14 @@ def main() -> int:
     print(f"  sections with functions : {report['sections_with_functions']} / {len(sections)}")
     print(f"  rejected functions       : {len(rejected)}")
     print(f"  verified name overrides  : {len(verified_name_overrides)}")
+    print(f"  verified size overrides  : {len(verified_size_overrides)}")
+    for override in verified_size_overrides:
+        print(
+            "    - "
+            f"0x{override['vram']:08X}: "
+            f"0x{override['detected_size']:X} -> "
+            f"0x{override['verified_size']:X}"
+        )
     print(
         "  relocated libultra funcs : "
         f"{len(relocated_libultra_applied)} "
