@@ -44,14 +44,14 @@ Write-Host ""
 
 Push-Location $RepoRoot
 try {
-    Write-Host "[1/4] Building segment-relocated candidate..."
+    Write-Host "[1/5] Building segment-relocated candidate..."
     python .\tools\np3f\build_segment_relocated_candidate.py --relocations "$RelocationPath" --output "$SegmentYaml" --report "$SegmentReport"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 
     Write-Host ""
-    Write-Host "[2/4] Applying ROM-verified fragment starts..."
+    Write-Host "[2/5] Applying ROM-verified fragment starts..."
     python .\tools\np3f\apply_verified_fragment_overrides.py --input "$SegmentYaml" --rom "$RomPath" --output "$VerifiedYaml" --report "$VerifiedReport"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
@@ -61,7 +61,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "[3/4] Running Splat with verified candidate..."
+Write-Host "[3/5] Running Splat with verified candidate..."
 
 $RunArgs = @{
     CandidateYaml = $VerifiedYaml
@@ -79,7 +79,7 @@ if ($ExtractExit -ne 0) {
 }
 
 Write-Host ""
-Write-Host "[4/4] Extracting Splat hints..."
+Write-Host "[4/5] Extracting Splat hints..."
 
 Push-Location $RepoRoot
 try {
@@ -94,8 +94,26 @@ if ($HintsExit -ne 0) {
 }
 
 Write-Host ""
+Write-Host "[5/5] Validating verified candidate..."
+
+$ValidationReport = Join-Path $RepoRoot "build\np3f\analysis\verified_candidate_validation.json"
+
+Push-Location $RepoRoot
+try {
+    python .\tools\np3f\validate_verified_candidate.py --candidate "$VerifiedYaml" --relocations "$RelocationPath" --overrides "$VerifiedReport" --output "$ValidationReport"
+    $ValidationExit = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+
+if ($ValidationExit -ne 0) {
+    exit $ValidationExit
+}
+
+Write-Host ""
 Write-Host "Verified candidate : $VerifiedYaml"
 Write-Host "Segment report     : $SegmentReport"
 Write-Host "Verified report    : $VerifiedReport"
 Write-Host "Splat hints        : $HintsReport"
+Write-Host "Validation report  : $ValidationReport"
 exit 0
