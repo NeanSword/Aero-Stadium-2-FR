@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.4"
+GENERATOR_VERSION = "2026-09-25.5"
 
 try:
     import yaml
