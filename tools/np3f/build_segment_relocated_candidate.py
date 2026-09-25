@@ -407,7 +407,7 @@ def patch_yaml_text(
         "# Experimental: fragment starts may move when the first",
         "# reliable executable subsegment is exactly +0x20 from",
         "# the US fragment header and relocates by the same delta.",
-        "# Source: yamls/fr/splat.yaml",
+        "# Source: yamls/fr/splat.seed.yaml",
         "",
     ]
     return "\n".join(banner + output) + "\n"
@@ -425,7 +425,7 @@ def main() -> int:
     parser.add_argument(
         "--yaml",
         type=Path,
-        default=Path("yamls/fr/splat.yaml"),
+        default=Path("yamls/fr/splat.seed.yaml"),
     )
     parser.add_argument(
         "--relocations",
