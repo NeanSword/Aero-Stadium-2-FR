@@ -108,38 +108,24 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(
 
 
 
-static inline void aerostadium2_np3f_debug_prout_recomp(
+static inline void aerostadium2_np3f_sprintf_prout_recomp(
     uint8_t* rdram,
     recomp_context* ctx
 ) {
-    const uint32_t buf_addr = (uint32_t)ctx->r5;
-    uint32_t count = (uint32_t)ctx->r6;
+    const gpr dst = ctx->r4;
+    const gpr src = ctx->r5;
+    const uint32_t count = (uint32_t)ctx->r6;
 
-    // _Printf's output callback contract is prout(arg, buf, n). Stadium's
-    // selected N64 debug backend ultimately forwards these bytes to RDB/KMC.
-    // For the native bootstrap, mirror that behavior to stderr instead.
-    if (count > 0x10000u) {
-        count = 0x10000u;
+    // proutSprintf(dst, src, count) is a tiny static libultra helper:
+    // memcpy(dst, src, count); return dst + count;
+    //
+    // Use MEM_B/MEM_BU rather than raw host memcpy so N64 byte addressing
+    // (the XOR-3 byte lane mapping) remains correct for any alignment.
+    for (uint32_t i = 0; i < count; ++i) {
+        MEM_B((gpr)i, dst) = (int8_t)MEM_BU((gpr)i, src);
     }
 
-    if ((buf_addr >= 0x80000000u && buf_addr < 0x80800000u) ||
-        (buf_addr >= 0xA0000000u && buf_addr < 0xA0800000u)) {
-        const uint32_t normalized =
-            (buf_addr >= 0xA0000000u) ? (buf_addr - 0x20000000u) : buf_addr;
-        const uint32_t offset = normalized - 0x80000000u;
-        const uint32_t max_count = 0x00800000u - offset;
-        if (count > max_count) {
-            count = max_count;
-        }
-
-        if (count != 0u) {
-            fwrite(rdram + offset, 1, count, stderr);
-            fflush(stderr);
-        }
-    }
-
-    // proutSyncPrintf/kmc_proutSyncPrintf return a non-null pointer.
-    ctx->r2 = 1;
+    ctx->r2 = dst + (gpr)count;
 }
 
 static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr target, recomp_context* ctx, const char* caller) {
@@ -161,14 +147,14 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
         if (!reported_debug_prout) {
             fprintf(
                 stderr,
-                "[printf-bridge] caller=%s target=0x%08X -> host debug prout\n",
+                "[sprintf-bridge] caller=%s target=0x%08X -> host proutSprintf\n",
                 caller,
                 (uint32_t)target32
             );
             fflush(stderr);
             reported_debug_prout = 1;
         }
-        return aerostadium2_np3f_debug_prout_recomp;
+        return aerostadium2_np3f_sprintf_prout_recomp;
     }
     const uint32_t word0 = (uint32_t)MEM_W(0x00, base);
     const uint32_t word1 = (uint32_t)MEM_W(0x04, base);
