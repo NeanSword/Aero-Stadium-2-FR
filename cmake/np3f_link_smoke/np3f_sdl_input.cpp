@@ -228,6 +228,8 @@ void pump_controller_events() {
 }
 
 void poll_controllers() {
+    std::scoped_lock lock(g_controller_mutex);
+
     if (!g_initialized) {
         return;
     }
