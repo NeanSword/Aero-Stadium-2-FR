@@ -2,7 +2,7 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-26.4"
+$RunnerVersion = "2026-09-26.5"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -186,6 +186,7 @@ Write-Host ""
 Write-Host "[1/2] Configuring first AeroStadium2.exe link..."
 $ConfigureArgs = @(
     "-Wno-deprecated",
+    "-Wno-policy",
     "-S", ('"{0}"' -f $CMakeSource),
     "-B", ('"{0}"' -f $BuildDir),
     "-G", '"Visual Studio 17 2022"',
@@ -230,6 +231,19 @@ $BuildExit = Invoke-LoggedProcess `
     -Activity "MSBuild"
 $BuildStdout = if (Test-Path $BuildStdoutLog) { @(Get-Content $BuildStdoutLog) } else { @() }
 $BuildStderr = if (Test-Path $BuildStderrLog) { @(Get-Content $BuildStderrLog) } else { @() }
+
+# Some Visual Studio/CMake combinations can occasionally return a successful
+# wrapper exit code even though MSBuild printed a compiler or linker error.
+# Treat known MSVC/MSBuild error signatures as authoritative.
+$BuildText = @($BuildStdout + $BuildStderr) -join [Environment]::NewLine
+$BuildErrorPattern = '(?im)(\berror\s+C\d{4}\b|\bfatal error\b|\berror\s+LNK\d{4}\b|\bMSB\d{4}:\s*error\b)'
+if ($BuildText -match $BuildErrorPattern) {
+    if ($BuildExit -eq 0) {
+        Write-Host "[build] Une erreur compilateur/linker a ete detectee malgre un code retour CMake egal a 0." -ForegroundColor Yellow
+    }
+    $BuildExit = 1
+}
+
 @("=== CMake build stdout ===",$BuildStdout,"","=== CMake build stderr ===",$BuildStderr,"","=== CMake build exit code: $BuildExit ===") | Set-Content -LiteralPath $BuildLog -Encoding UTF8
 Write-Host ""
 Write-Host "Configure log : $ConfigureLog"
