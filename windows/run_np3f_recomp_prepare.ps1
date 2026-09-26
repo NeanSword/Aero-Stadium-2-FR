@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-25.4"
+$RunnerVersion = "2026-09-27.1"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -67,6 +67,28 @@ else {
 
 The recompilation pass now requires a fresh Splat extraction without stale
 NP3E code symbols. Run this script once without -SkipExtract.
+"@
+    }
+
+    # Older local experiments could leave Aero-specific helper labels inside
+    # build/np3f/asm even though the stamp predates the current symbol-clean
+    # extraction rules. Those labels are not part of NP3F and must never leak
+    # into the generated static library.
+    $StaleAeroSymbol = Get-ChildItem -LiteralPath $AsmDir -Recurse -File -Filter "*.s" -ErrorAction SilentlyContinue |
+        Select-String -Pattern '\baero_[A-Za-z0-9_]+\b' -List |
+        Select-Object -First 1
+
+    if ($null -ne $StaleAeroSymbol) {
+        throw @"
+-SkipExtract refused: stale Aero-specific symbols were found in the cached
+Splat assembly.
+
+First match:
+$($StaleAeroSymbol.Path):$($StaleAeroSymbol.LineNumber)
+$($StaleAeroSymbol.Line.Trim())
+
+Run this script once WITHOUT -SkipExtract. It will delete build\np3f\asm and
+re-extract a clean NP3F disassembly before regenerating N64Recomp output.
 "@
     }
 
