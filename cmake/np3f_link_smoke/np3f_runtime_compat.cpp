@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstdio>
+#include <span>
 
 #include "recomp.h"
 #include "librecomp/addresses.hpp"
