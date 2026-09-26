@@ -104,10 +104,16 @@ target_link_libraries(AeroStadium2 PRIVATE
 )
 
 if(WIN32)
+    target_link_directories(AeroStadium2 PRIVATE
+        "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64"
+    )
+
     target_link_libraries(AeroStadium2 PRIVATE
         comdlg32
         shell32
         ole32
+        SDL2
+        SDL2main
     )
 
     set(RT64_DXCOMPILER_DLL "${RT64_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll")
