@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.3"
+$BootstrapVersion = "2026-09-27.1"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64recomp"
@@ -19,6 +19,11 @@ $BinDir = Join-Path $RepoRoot ".local\bin"
 $ExePath = Join-Path $BinDir "N64Recomp.exe"
 
 $N64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
+$ForbiddenAeroHooks = @(
+    "aero_lookup_asset",
+    "aero_cartridge_read_u32",
+    "aero_poll_events"
+)
 
 $Dependencies = @(
     @{ Owner = "Decompollaborate"; Repo = "rabbitizer"; Commit = "e0d8003047938e2ec3697eaf8d61a84d11d17b43"; Path = "lib\rabbitizer" },
@@ -132,6 +137,22 @@ Write-Host ""
 Write-Host "[3/4] Configuring and building N64Recomp..."
 Write-Host "Build directory: $BuildDir"
 
+foreach ($ForbiddenHook in $ForbiddenAeroHooks) {
+    $SourceMatch = Get-ChildItem -LiteralPath $SourceDir -Recurse -File -ErrorAction SilentlyContinue |
+        Select-String -SimpleMatch $ForbiddenHook -List -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -ne $SourceMatch) {
+        throw @"
+Pinned N64Recomp source contains an unexpected Aero-specific hook:
+  $ForbiddenHook
+  $($SourceMatch.Path):$($SourceMatch.LineNumber)
+
+Delete the local N64Recomp source/build and rerun this bootstrap with -Force.
+"@
+    }
+}
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
@@ -161,6 +182,21 @@ if ($null -eq $BuiltExe) {
 
 Copy-Item -LiteralPath $BuiltExe.FullName -Destination $ExePath -Force
 
+$ExeBytes = [System.IO.File]::ReadAllBytes($ExePath)
+$ExeAscii = [System.Text.Encoding]::ASCII.GetString($ExeBytes)
+foreach ($ForbiddenHook in $ForbiddenAeroHooks) {
+    if ($ExeAscii.Contains($ForbiddenHook)) {
+        throw @"
+The freshly built N64Recomp executable still contains an obsolete Aero hook:
+  $ForbiddenHook
+
+Executable: $ExePath
+
+This should never happen with the pinned upstream source. Do not use this binary.
+"@
+    }
+}
+
 Write-Host ""
 Write-Host "[4/4] Verifying N64Recomp executable..."
 
@@ -169,8 +205,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "N64Recomp executable verification failed."
 }
 
+$ExeHash = (Get-FileHash -LiteralPath $ExePath -Algorithm SHA256).Hash
+
 $Versions = @{
+    bootstrap_version = $BootstrapVersion
     n64recomp = $N64RecompCommit
+    n64recomp_exe_sha256 = $ExeHash
     rabbitizer = "e0d8003047938e2ec3697eaf8d61a84d11d17b43"
     elfio = "ad8b641f9682b6091ba8b9f7c8152255c1a2c803"
     fmt = "407c905e45ad75fc29bf0f9bb7c5c2fd3475976f"
@@ -184,5 +224,6 @@ $Versions |
 
 Write-Host ""
 Write-Host "N64Recomp bootstrap completed."
-Write-Host "Executable: $ExePath"
+Write-Host "Executable : $ExePath"
+Write-Host "SHA-256    : $ExeHash"
 exit 0
