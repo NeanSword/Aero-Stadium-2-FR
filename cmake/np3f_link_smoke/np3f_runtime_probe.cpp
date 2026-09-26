@@ -19,6 +19,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
+#include "np3f_rt64_renderer.h"
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 
@@ -326,12 +327,23 @@ public:
 
 std::unique_ptr<ultramodern::renderer::RendererContext> create_render_context(
     uint8_t* rdram,
-    ultramodern::renderer::WindowHandle,
-    bool
+    ultramodern::renderer::WindowHandle window_handle,
+    bool developer_mode
 ) {
     g_rdram.store(rdram);
+
+#if defined(AEROSTADIUM2_WITH_RT64)
+    std::printf("[runtime-probe] Initialisation du renderer RT64...\n");
+    std::fflush(stdout);
+    return aerostadium2::create_rt64_renderer_context(
+        rdram,
+        window_handle,
+        developer_mode
+    );
+#else
     std::printf("[runtime-probe] Renderer factice initialise.\n");
     return std::make_unique<ProbeRendererContext>();
+#endif
 }
 
 RspExitReason probe_rsp_ucode(uint8_t*, uint32_t) {
@@ -510,6 +522,10 @@ void runtime_message_box(const char* msg) {
 } // namespace
 
 namespace aerostadium2 {
+
+void mark_rt64_display_list_seen() {
+    g_logged_display_list.store(true);
+}
 
 void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx) {
     // IPL3 stores osTvType at virtual address 0x80000300, i.e. RDRAM offset 0x300.
