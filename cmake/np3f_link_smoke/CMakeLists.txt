@@ -77,6 +77,7 @@ add_executable(AeroStadium2
 )
 
 target_include_directories(AeroStadium2 PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${NP3F_GENERATED_DIR}"
     "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/ultramodern/include"
