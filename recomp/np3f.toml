@@ -1,4 +1,5 @@
 # Aero-Stadium-2-FR — first NP3F static recompilation pass.
+# AERO_NP3F_RECOMP_CONFIG_VERSION = 2026-09-27.1
 # The symbol map is generated locally from Splat --disassemble-all output.
 
 [input]
