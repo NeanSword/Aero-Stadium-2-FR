@@ -173,9 +173,24 @@ Write-Host "RT64 pin : $Rt64Commit"
 Write-Host "Target   : $SourceDir"
 Write-Host ""
 
-if ((Test-Path -LiteralPath $PinFile -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $SourceDir "CMakeLists.txt") -PathType Leaf) -and -not $Force) {
+if ((Test-Path -LiteralPath $PinFile -PathType Leaf) -and -not $Force) {
     $ExistingPin = (Get-Content -LiteralPath $PinFile -Raw).Trim()
-    if ($ExistingPin -eq $Rt64Commit) {
+    $ExistingRequired = @(
+        "CMakeLists.txt",
+        "src\hle\rt64_application.h",
+        "src\contrib\dxc\bin\x64\dxc.exe",
+        "src\contrib\dxc\bin\x64\dxcompiler.dll",
+        "src\contrib\dxc\bin\x64\dxil.dll",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2.dll"
+    )
+    $ExistingComplete = $true
+    foreach ($RelativePath in $ExistingRequired) {
+        if (-not (Test-Path -LiteralPath (Join-Path $SourceDir $RelativePath) -PathType Leaf)) {
+            $ExistingComplete = $false
+            break
+        }
+    }
+    if ($ExistingPin -eq $Rt64Commit -and $ExistingComplete) {
         Write-Host "RT64 already matches the pinned commit. Use -Force to redownload."
         exit 0
     }
