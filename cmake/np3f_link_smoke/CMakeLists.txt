@@ -73,6 +73,7 @@ add_executable(AeroStadium2
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_register_overlays.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_probe.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_rt64_renderer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_sdl_input.cpp"
 )
 
 target_include_directories(AeroStadium2 PRIVATE
@@ -95,6 +96,7 @@ target_include_directories(AeroStadium2 PRIVATE
     "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${RT64_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
     "${RT64_SOURCE_DIR}/src/contrib/dxc/inc"
+    "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include/SDL2"
 )
 
 target_link_libraries(AeroStadium2 PRIVATE
