@@ -4,6 +4,19 @@
 #include <stdio.h>
 #include "recomp.h"
 
+// The generated-code target must resolve indirect N64 calls through the
+// pinned N64ModernRuntime implementation of get_function(). Some older local
+// Aero experiments defined get_function as a preprocessor alias to
+// aero_lookup_asset; because this header is force-included into every generated
+// translation unit, that stale alias would also rewrite the helper below and
+// leave aero_lookup_asset unresolved at final link time.
+//
+// Drop any such alias after recomp.h has established the canonical ABI.
+// The real get_function symbol is exported by N64ModernRuntime/librecomp.
+#ifdef get_function
+#undef get_function
+#endif
+
 extern void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
 extern void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
 
