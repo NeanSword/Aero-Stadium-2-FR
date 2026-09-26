@@ -82,6 +82,37 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(uint8_t* rdram, gpr address) 
 static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr target, recomp_context* ctx, const char* caller) {
     const int32_t target32 = (int32_t)target;
 
+    const gpr base = (gpr)(int64_t)target32;
+    const uint32_t word0 = (uint32_t)MEM_W(0x00, base);
+    const uint32_t word1 = (uint32_t)MEM_W(0x04, base);
+    const uint32_t magic0 = (uint32_t)MEM_W(0x08, base);
+    const uint32_t magic1 = (uint32_t)MEM_W(0x0C, base);
+
+    // Pokémon Stadium 2 fragment headers begin with an 8-byte executable
+    // trampoline followed by the ASCII magic "FRAGMENT". These stubs contain
+    // a pseudo-direct MIPS J whose target is encoded for the fragment's
+    // runtime load address, so they cannot be compiled as ordinary static
+    // functions at the fragment's nominal VRAM. Resolve the stub dynamically
+    // and jump straight to the already-recompiled inner overlay function.
+    if (magic0 == 0x46524147u && magic1 == 0x4D454E54u &&
+        (word0 >> 26) == 0x02u && word1 == 0u) {
+        const uint32_t runtime_pc = (uint32_t)target32;
+        const uint32_t jump_target =
+            ((runtime_pc + 4u) & 0xF0000000u) |
+            ((word0 & 0x03FFFFFFu) << 2);
+
+        fprintf(
+            stderr,
+            "[fragment-stub] caller=%s base=0x%08X -> target=0x%08X word=0x%08X\n",
+            caller,
+            runtime_pc,
+            jump_target,
+            word0
+        );
+        fflush(stderr);
+        return get_function((int32_t)jump_target);
+    }
+
     if (target32 == (int32_t)0x80145230) {
         fprintf(
             stderr,
@@ -93,15 +124,13 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
             (uint32_t)ctx->r4,
             (uint32_t)ctx->r5
         );
-
-        const gpr base = (gpr)(int64_t)target32;
         fprintf(
             stderr,
             "[lookup-header] %08X %08X %08X %08X %08X %08X %08X %08X\n",
-            (uint32_t)MEM_W(0x00, base),
-            (uint32_t)MEM_W(0x04, base),
-            (uint32_t)MEM_W(0x08, base),
-            (uint32_t)MEM_W(0x0C, base),
+            word0,
+            word1,
+            magic0,
+            magic1,
             (uint32_t)MEM_W(0x10, base),
             (uint32_t)MEM_W(0x14, base),
             (uint32_t)MEM_W(0x18, base),
