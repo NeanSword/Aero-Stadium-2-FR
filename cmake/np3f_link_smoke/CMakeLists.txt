@@ -96,7 +96,7 @@ target_include_directories(AeroStadium2 PRIVATE
     "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${RT64_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
     "${RT64_SOURCE_DIR}/src/contrib/dxc/inc"
-    "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include/SDL2"
+    "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include"
 )
 
 target_link_libraries(AeroStadium2 PRIVATE
