@@ -83,7 +83,7 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
     const int32_t target32 = (int32_t)target;
 
     const uint32_t target_low = (uint32_t)target32;
-    const bool target_is_rdram =
+    const int target_is_rdram =
         (target_low >= 0x80000000u && target_low < 0x80800000u) ||
         (target_low >= 0xA0000000u && target_low < 0xA0800000u);
 
