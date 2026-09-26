@@ -20,6 +20,45 @@ void return_no_pack(recomp_context* ctx) {
     _return<s32>(ctx, kPfsErrNoPack);
 }
 
+uint32_t read_rom_be32(std::span<const uint8_t> rom, uint32_t offset) {
+    return
+        (static_cast<uint32_t>(rom[offset + 0]) << 24) |
+        (static_cast<uint32_t>(rom[offset + 1]) << 16) |
+        (static_cast<uint32_t>(rom[offset + 2]) << 8) |
+        (static_cast<uint32_t>(rom[offset + 3]) << 0);
+}
+
+bool is_stadium_fragment_load(uint32_t rom_offset, uint32_t size, uint32_t* stub_word) {
+    // Header-only probes are commonly 0x18/0x20 bytes and are copied into
+    // scratch RDRAM before the real fragment DMA. Never register those as
+    // executable overlays.
+    if (size <= 0x20u) {
+        return false;
+    }
+
+    const std::span<const uint8_t> rom = recomp::get_rom();
+    if (rom_offset > rom.size() || rom.size() - rom_offset < 0x10u) {
+        return false;
+    }
+
+    const uint32_t word0 = read_rom_be32(rom, rom_offset + 0x00u);
+    const uint32_t word1 = read_rom_be32(rom, rom_offset + 0x04u);
+    const uint32_t magic0 = read_rom_be32(rom, rom_offset + 0x08u);
+    const uint32_t magic1 = read_rom_be32(rom, rom_offset + 0x0Cu);
+
+    if ((word0 >> 26) != 0x02u ||
+        word1 != 0u ||
+        magic0 != 0x46524147u ||
+        magic1 != 0x4D454E54u) {
+        return false;
+    }
+
+    if (stub_word != nullptr) {
+        *stub_word = word0;
+    }
+    return true;
+}
+
 
 void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint32_t direction) {
     if (direction != 0 || size == 0) {
@@ -47,11 +86,31 @@ void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint
     );
     std::fflush(stderr);
 
-    // Generic PI DMA is also used for ordinary data transfers. Calling
-    // unload_overlays() here is unsafe because a small data DMA can land
-    // inside an already-loaded executable section and would look like a
-    // partial overlay unload. load_overlays() is range-aware on the ROM side
-    // and only registers executable sections actually covered by this DMA.
+    // Stadium uses PI DMA for ordinary data, textures, header probes and
+    // executable fragments. Calling load_overlays() for every transfer can
+    // feed data-only ranges into N64ModernRuntime's code-section loader.
+    //
+    // A real Stadium fragment load starts with:
+    //   j <runtime entry>
+    //   nop
+    //   "FRAGMENT"
+    // and contains more than the 0x20-byte metadata header. Restrict overlay
+    // registration to that verified format.
+    uint32_t stub_word = 0;
+    if (!is_stadium_fragment_load(rom_offset, size, &stub_word)) {
+        return;
+    }
+
+    std::fprintf(
+        stderr,
+        "[overlay-register] ROM 0x%08X -> RAM 0x%08X size=0x%08X stub=0x%08X\n",
+        rom_offset,
+        static_cast<uint32_t>(ram_addr),
+        size,
+        stub_word
+    );
+    std::fflush(stderr);
+
     load_overlays(rom_offset, ram_addr, size);
 }
 
