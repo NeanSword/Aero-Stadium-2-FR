@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-27.3"
+$RunnerVersion = "2026-09-27.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -22,6 +22,7 @@ $StandaloneN64RecompRoot = Join-Path $RepoRoot ".local\n64recomp"
 $StandaloneN64RecompSource = Join-Path $StandaloneN64RecompRoot "src"
 $StandaloneVersions = Join-Path $StandaloneN64RecompRoot "versions.json"
 $ExpectedN64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
+$ExpectedConfigVersion = "2026-09-27.1"
 $ForbiddenGeneratedHooks = @(
     "aero_lookup_asset",
     "aero_cartridge_read_u32",
@@ -34,6 +35,34 @@ Write-Host ""
 
 if (-not (Test-Path -LiteralPath $RecompExe -PathType Leaf)) {
     throw "N64Recomp.exe not found. Run .\windows\bootstrap_n64recomp.ps1 first."
+}
+
+if (-not (Test-Path -LiteralPath $Config -PathType Leaf)) {
+    throw "NP3F N64Recomp config not found: $Config"
+}
+
+$ConfigText = Get-Content -LiteralPath $Config -Raw
+$ConfigVersionMarker = "AERO_NP3F_RECOMP_CONFIG_VERSION = $ExpectedConfigVersion"
+if (-not $ConfigText.Contains($ConfigVersionMarker)) {
+    throw @"
+NP3F N64Recomp config is stale or locally modified.
+
+Expected marker:
+  $ConfigVersionMarker
+
+Refresh recomp\np3f.toml from the project repository, then rerun this script.
+"@
+}
+
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    if ($ConfigText.Contains($ForbiddenHook)) {
+        throw @"
+NP3F N64Recomp config contains an obsolete Aero-specific hook:
+  $ForbiddenHook
+
+Refresh recomp\np3f.toml from the project repository, then rerun this script.
+"@
+    }
 }
 
 if (-not (Test-Path -LiteralPath $StandaloneVersions -PathType Leaf)) {
