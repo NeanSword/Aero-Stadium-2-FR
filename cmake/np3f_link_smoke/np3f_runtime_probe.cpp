@@ -20,6 +20,7 @@
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
 #include "np3f_rt64_renderer.h"
+#include "np3f_sdl_input.h"
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 
@@ -274,6 +275,8 @@ ultramodern::renderer::WindowHandle create_window(void*) {
 }
 
 void update_gfx(void*) {
+    aerostadium2::input::pump_controller_events();
+
     MSG msg{};
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
@@ -376,36 +379,6 @@ void set_frequency(uint32_t frequency) {
     }
 }
 
-void poll_input() {}
-
-bool get_input(int, uint16_t* buttons, float* x, float* y) {
-    if (buttons != nullptr) {
-        *buttons = 0;
-    }
-    if (x != nullptr) {
-        *x = 0.0f;
-    }
-    if (y != nullptr) {
-        *y = 0.0f;
-    }
-    return true;
-}
-
-void set_rumble(int, bool) {}
-
-ultramodern::input::connected_device_info_t get_connected_device_info(int controller_num) {
-    if (controller_num == 0) {
-        return {
-            .connected_device = ultramodern::input::Device::Controller,
-            .connected_pak = ultramodern::input::Pak::None,
-        };
-    }
-
-    return {
-        .connected_device = ultramodern::input::Device::None,
-        .connected_pak = ultramodern::input::Pak::None,
-    };
-}
 
 void print_thread_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
     const PTR(OSThread) addr = static_cast<int32_t>(vaddr);
@@ -618,10 +591,11 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
     };
 
     const ultramodern::input::callbacks_t input_callbacks{
-        .poll_input = poll_input,
-        .get_input = get_input,
-        .set_rumble = set_rumble,
-        .get_connected_device_info = get_connected_device_info,
+        .poll_input = aerostadium2::input::poll_controllers,
+        .get_input = aerostadium2::input::get_controller_input,
+        .set_rumble = aerostadium2::input::set_controller_rumble,
+        .get_connected_device_info =
+            aerostadium2::input::get_connected_controller_info,
     };
 
     const ultramodern::gfx_callbacks_t gfx_callbacks{
@@ -643,6 +617,13 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
     cfg.gfx_callbacks = gfx_callbacks;
     cfg.error_handling_callbacks = error_callbacks;
 
+    if (!aerostadium2::input::initialize_controllers()) {
+        std::fprintf(
+            stderr,
+            "[input] Le runtime continue sans manette SDL disponible.\n"
+        );
+    }
+
     std::printf("[runtime-probe] Demarrage du CPU recompile NP3F...\n");
     std::thread boot_watchdog([]() {
         using namespace std::chrono_literals;
@@ -663,6 +644,7 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
 
     recomp::start_game(game_id, "");
     recomp::start(cfg);
+    aerostadium2::input::shutdown_controllers();
     std::printf("[runtime-probe] N64ModernRuntime termine.\n");
 }
 
