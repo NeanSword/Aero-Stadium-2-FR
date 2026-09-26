@@ -2,7 +2,7 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-26.3"
+$RunnerVersion = "2026-09-26.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -30,7 +30,64 @@ if (-not (Test-Path -LiteralPath (Join-Path $Rt64Source "CMakeLists.txt") -PathT
 if (-not (Test-Path -LiteralPath (Join-Path $Rt64Source "src\hle\rt64_application.h") -PathType Leaf)) { throw "RT64 source is incomplete. Re-run .\windows\setup_rt64_windows.ps1 -Force." }
 if (-not (Test-Path -LiteralPath (Join-Path $CMakeSource "CMakeLists.txt") -PathType Leaf)) { throw "Link-smoke CMakeLists.txt was not found." }
 
-if ($Clean -and (Test-Path -LiteralPath $BuildDir)) { Remove-Item -LiteralPath $BuildDir -Recurse -Force }
+function Stop-StaleBuildProcesses {
+    param([Parameter(Mandatory = $true)][string]$TargetBuildDir)
+
+    $NormalizedTarget = $TargetBuildDir.ToLowerInvariant()
+
+    $Candidates = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -in @("cmake.exe", "MSBuild.exe", "cl.exe", "link.exe") -and
+            $_.CommandLine -and
+            $_.CommandLine.ToLowerInvariant().Contains($NormalizedTarget)
+        }
+
+    foreach ($Candidate in $Candidates) {
+        Write-Host (
+            "[clean] Arret de l'ancien processus {0} PID={1} qui utilise ce build..." -f
+            $Candidate.Name,
+            $Candidate.ProcessId
+        ) -ForegroundColor Yellow
+
+        Stop-Process -Id $Candidate.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Remove-BuildDirectoryRobust {
+    param([Parameter(Mandatory = $true)][string]$TargetBuildDir)
+
+    if (-not (Test-Path -LiteralPath $TargetBuildDir)) {
+        return
+    }
+
+    for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
+        try {
+            Remove-Item -LiteralPath $TargetBuildDir -Recurse -Force -ErrorAction Stop
+            return
+        }
+        catch {
+            if ($Attempt -eq 1) {
+                Write-Host "[clean] Le dossier de build est verrouille. Recherche des anciens CMake/MSBuild..." -ForegroundColor Yellow
+                Stop-StaleBuildProcesses -TargetBuildDir $TargetBuildDir
+            }
+
+            if ($Attempt -lt 5) {
+                Write-Host ("[clean] Nouvelle tentative {0}/5..." -f ($Attempt + 1)) -ForegroundColor DarkGray
+                Start-Sleep -Milliseconds 750
+            }
+            else {
+                throw (
+                    "Impossible de nettoyer le dossier de build apres 5 tentatives: {0}. " +
+                    "Ferme toute ancienne fenetre AeroStadium2/CMake/Visual Studio qui utilise ce projet puis relance."
+                ) -f $TargetBuildDir
+            }
+        }
+    }
+}
+
+if ($Clean) {
+    Remove-BuildDirectoryRobust -TargetBuildDir $BuildDir
+}
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 foreach ($OldLog in @($ConfigureLog,$ConfigureStdoutLog,$ConfigureStderrLog,$BuildLog,$BuildStdoutLog,$BuildStderrLog)) { Remove-Item -LiteralPath $OldLog -Force -ErrorAction SilentlyContinue }
