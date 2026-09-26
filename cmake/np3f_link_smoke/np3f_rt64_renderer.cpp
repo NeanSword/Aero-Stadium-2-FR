@@ -146,10 +146,8 @@ public:
         const uint32_t setup_thread_id = 0;
 #endif
 
-        const auto setup_result =
-            map_setup_result(app_->setup(setup_thread_id));
-        const auto chosen_api =
-            map_graphics_api(app_->chosenGraphicsAPI);
+        setup_result = map_setup_result(app_->setup(setup_thread_id));
+        chosen_api = map_graphics_api(app_->chosenGraphicsAPI);
 
         if (setup_result != ultramodern::renderer::SetupResult::Success) {
             std::fprintf(
