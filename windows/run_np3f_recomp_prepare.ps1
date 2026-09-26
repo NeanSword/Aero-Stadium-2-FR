@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-27.1"
+$RunnerVersion = "2026-09-27.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -18,6 +18,15 @@ $AsmDir = Join-Path $RepoRoot "build\np3f\asm"
 $SrcDir = Join-Path $RepoRoot "build\np3f\src"
 $CleanExtractStamp = Join-Path $RepoRoot "build\np3f\recomp\.np3f-symbol-clean-extract-v1"
 $GeneratorScript = Join-Path $RepoRoot "tools\recomp\generate_np3f_symbols.py"
+$StandaloneN64RecompRoot = Join-Path $RepoRoot ".local\n64recomp"
+$StandaloneN64RecompSource = Join-Path $StandaloneN64RecompRoot "src"
+$StandaloneVersions = Join-Path $StandaloneN64RecompRoot "versions.json"
+$ExpectedN64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
+$ForbiddenGeneratedHooks = @(
+    "aero_lookup_asset",
+    "aero_cartridge_read_u32",
+    "aero_poll_events"
+)
 
 Write-Host "=== Aero-Stadium-2-FR / first NP3F N64Recomp pass ==="
 Write-Host "Runner version: $RunnerVersion"
@@ -25,6 +34,47 @@ Write-Host ""
 
 if (-not (Test-Path -LiteralPath $RecompExe -PathType Leaf)) {
     throw "N64Recomp.exe not found. Run .\windows\bootstrap_n64recomp.ps1 first."
+}
+
+if (-not (Test-Path -LiteralPath $StandaloneVersions -PathType Leaf)) {
+    throw @"
+Standalone N64Recomp version metadata is missing.
+
+Run:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$VersionInfo = Get-Content -LiteralPath $StandaloneVersions -Raw | ConvertFrom-Json
+if ($VersionInfo.n64recomp -ne $ExpectedN64RecompCommit) {
+    throw @"
+Standalone N64Recomp is not the pinned revision.
+Expected: $ExpectedN64RecompCommit
+Found   : $($VersionInfo.n64recomp)
+
+Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+if (Test-Path -LiteralPath $StandaloneN64RecompSource -PathType Container) {
+    foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+        $SourceMatch = Get-ChildItem -LiteralPath $StandaloneN64RecompSource -Recurse -File -ErrorAction SilentlyContinue |
+            Select-String -SimpleMatch $ForbiddenHook -List -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+        if ($null -ne $SourceMatch) {
+            throw @"
+Standalone N64Recomp source contains an Aero-specific host hook:
+  $ForbiddenHook
+  $($SourceMatch.Path):$($SourceMatch.LineNumber)
+
+The generator source is contaminated by an older local experiment.
+Rebuild the pinned upstream source with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+        }
+    }
 }
 
 if (-not $SkipExtract) {
@@ -165,6 +215,25 @@ Write-Host "N64Recomp log     : $Log"
 if ($RecompExit -ne 0) {
     Write-Host "N64Recomp stopped with exit code $RecompExit."
     exit $RecompExit
+}
+
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    $GeneratedMatch = Get-ChildItem -LiteralPath $GeneratedDir -Recurse -File -ErrorAction SilentlyContinue |
+        Select-String -SimpleMatch $ForbiddenHook -List -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -ne $GeneratedMatch) {
+        throw @"
+N64Recomp generated an obsolete Aero-specific host hook:
+  $ForbiddenHook
+  $($GeneratedMatch.Path):$($GeneratedMatch.LineNumber)
+
+The standalone generator executable is stale or modified. Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+
+Then rerun this script with -SkipExtract.
+"@
+    }
 }
 
 Write-Host "N64Recomp generation completed successfully."
