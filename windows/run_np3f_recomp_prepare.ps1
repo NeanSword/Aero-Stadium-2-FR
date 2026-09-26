@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-27.2"
+$RunnerVersion = "2026-09-27.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -46,6 +46,40 @@ Run:
 }
 
 $VersionInfo = Get-Content -LiteralPath $StandaloneVersions -Raw | ConvertFrom-Json
+if (-not $VersionInfo.n64recomp_exe_sha256) {
+    throw @"
+Standalone N64Recomp provenance metadata is too old.
+
+Rebuild the executable once with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$ActualExeHash = (Get-FileHash -LiteralPath $RecompExe -Algorithm SHA256).Hash
+if ($ActualExeHash -ne $VersionInfo.n64recomp_exe_sha256) {
+    throw @"
+Standalone N64Recomp executable does not match its bootstrap provenance.
+Recorded SHA-256: $($VersionInfo.n64recomp_exe_sha256)
+Actual SHA-256  : $ActualExeHash
+
+Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$ExeAscii = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($RecompExe))
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    if ($ExeAscii.Contains($ForbiddenHook)) {
+        throw @"
+Standalone N64Recomp executable contains an obsolete Aero-specific hook:
+  $ForbiddenHook
+
+Rebuild the pinned upstream executable with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+    }
+}
+
 if ($VersionInfo.n64recomp -ne $ExpectedN64RecompCommit) {
     throw @"
 Standalone N64Recomp is not the pinned revision.
