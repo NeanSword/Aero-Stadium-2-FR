@@ -82,7 +82,16 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(uint8_t* rdram, gpr address) 
 static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr target, recomp_context* ctx, const char* caller) {
     const int32_t target32 = (int32_t)target;
 
-    const gpr base = (gpr)(int64_t)target32;
+    const uint32_t target_low = (uint32_t)target32;
+    const bool target_is_rdram =
+        (target_low >= 0x80000000u && target_low < 0x80800000u) ||
+        (target_low >= 0xA0000000u && target_low < 0xA0800000u);
+
+    if (!target_is_rdram) {
+        return get_function(target32);
+    }
+
+    const gpr base = aerostadium2_np3f_normalize_rdram_alias((gpr)(int64_t)target32);
     const uint32_t word0 = (uint32_t)MEM_W(0x00, base);
     const uint32_t word1 = (uint32_t)MEM_W(0x04, base);
     const uint32_t magic0 = (uint32_t)MEM_W(0x08, base);
