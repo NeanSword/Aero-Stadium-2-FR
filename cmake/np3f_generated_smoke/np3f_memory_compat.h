@@ -120,6 +120,23 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
     }
 
     const gpr base = aerostadium2_np3f_normalize_rdram_alias((gpr)(int64_t)target32);
+
+    if ((uint32_t)target32 == 0x8007BFA8u) {
+        fprintf(
+            stderr,
+            "[lookup-static] caller=%s target=0x%08X ra=0x%08X sp=0x%08X "
+            "words=%08X %08X %08X %08X\n",
+            caller,
+            (uint32_t)target32,
+            (uint32_t)ctx->r31,
+            (uint32_t)ctx->r29,
+            (uint32_t)MEM_W(0x00, base),
+            (uint32_t)MEM_W(0x04, base),
+            (uint32_t)MEM_W(0x08, base),
+            (uint32_t)MEM_W(0x0C, base)
+        );
+        fflush(stderr);
+    }
     const uint32_t word0 = (uint32_t)MEM_W(0x00, base);
     const uint32_t word1 = (uint32_t)MEM_W(0x04, base);
     const uint32_t magic0 = (uint32_t)MEM_W(0x08, base);
