@@ -6,11 +6,11 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$RunnerVersion = "2026-09-25.1"
+$RunnerVersion = "2026-09-27.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
-$N64RecompInclude = Join-Path $RepoRoot ".local\n64recomp\src\include"
+$N64RecompInclude = Join-Path $RepoRoot ".local\n64modernruntime\src\N64Recomp\include"
 $CMakeSource = Join-Path $RepoRoot "cmake\np3f_generated_smoke"
 $BuildDir = Join-Path $RepoRoot "build\np3f\generated-smoke-vs2022-x64"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
@@ -57,6 +57,7 @@ if ($GeneratedSources.Count -eq 0) {
 
 Write-Host "Generated translation units : $($GeneratedSources.Count)"
 Write-Host "N64Recomp header            : $(Join-Path $N64RecompInclude 'recomp.h')"
+Write-Host "Header source               : N64ModernRuntime pinned N64Recomp"
 Write-Host "Build directory             : $BuildDir"
 Write-Host ""
 
