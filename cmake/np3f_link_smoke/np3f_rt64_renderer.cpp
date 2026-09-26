@@ -10,6 +10,7 @@
 #endif
 
 #include "hle/rt64_application.h"
+#include "hle/rt64_state.h"
 
 #include "ultramodern/config.hpp"
 #include "ultramodern/ultramodern.hpp"
