@@ -79,7 +79,7 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(uint8_t* rdram, gpr address) 
 }
 
 
-static inline recomp_func_t* aerostadium2_np3f_lookup_func(gpr target, recomp_context* ctx, const char* caller) {
+static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr target, recomp_context* ctx, const char* caller) {
     const int32_t target32 = (int32_t)target;
 
     if (target32 == (int32_t)0x80145230) {
@@ -93,6 +93,20 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(gpr target, recomp_co
             (uint32_t)ctx->r4,
             (uint32_t)ctx->r5
         );
+
+        const gpr base = (gpr)(int64_t)target32;
+        fprintf(
+            stderr,
+            "[lookup-header] %08X %08X %08X %08X %08X %08X %08X %08X\n",
+            (uint32_t)MEM_W(0x00, base),
+            (uint32_t)MEM_W(0x04, base),
+            (uint32_t)MEM_W(0x08, base),
+            (uint32_t)MEM_W(0x0C, base),
+            (uint32_t)MEM_W(0x10, base),
+            (uint32_t)MEM_W(0x14, base),
+            (uint32_t)MEM_W(0x18, base),
+            (uint32_t)MEM_W(0x1C, base)
+        );
         fflush(stderr);
     }
 
@@ -101,4 +115,4 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(gpr target, recomp_co
 
 #undef LOOKUP_FUNC
 #define LOOKUP_FUNC(val) \
-    aerostadium2_np3f_lookup_func((val), ctx, __func__)
+    aerostadium2_np3f_lookup_func(rdram, (val), ctx, __func__)
