@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <fstream>
 #include <vector>
+#include <cstdlib>
+#include <iterator>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
