@@ -648,4 +648,10 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
     std::printf("[runtime-probe] N64ModernRuntime termine.\n");
 }
 
+// Compatibility overload for older local launcher sources that passed a
+// reserved uint32_t probe argument. The current runtime no longer needs it.
+void run_np3f_runtime_probe(const std::u8string& game_id, uint32_t) {
+    run_np3f_runtime_probe(game_id);
+}
+
 } // namespace aerostadium2
