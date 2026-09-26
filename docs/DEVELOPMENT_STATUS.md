@@ -39,4 +39,8 @@ Once a stable NP3F ELF/metadata representation exists:
 - provide a modern runtime;
 - separate game simulation cadence from presentation cadence;
 - validate 60 Hz game logic while allowing presentation at higher display refresh rates;
-- defer online multiplayer until local deterministic behavior is stable.
+- keep online multiplayer as a first-class project target once local deterministic behavior is stable;
+- target host-authoritative Internet P2P with lobby/session discovery and relay fallback;
+- keep the networking backend isolated so EOS, another provider, or a future dedicated server can be swapped without rewriting game logic.
+
+See [NETWORKING.md](NETWORKING.md) for the networking architecture and milestones.
