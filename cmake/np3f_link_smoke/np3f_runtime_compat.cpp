@@ -9,6 +9,11 @@
 #include "librecomp/overlays.hpp"
 #include <ultramodern/ultra64.h>
 
+// Aero-Stadium-2-FR runtime compatibility layer version.
+// Keep this visible in source so Windows incremental builds clearly rebuild
+// the translation unit when DMA bridge compatibility changes.
+static constexpr const char* kAeroRuntimeCompatVersion = "2026-09-27.1";
+
 namespace {
 
 constexpr s32 kPfsErrNoPack = 1;
