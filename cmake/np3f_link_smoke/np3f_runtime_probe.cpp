@@ -6,6 +6,9 @@
 #include <chrono>
 #include <cstring>
 #include <array>
+#include <algorithm>
+#include <fstream>
+#include <vector>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -26,6 +29,114 @@ std::atomic_bool g_entrypoint_started = false;
 std::atomic_bool g_entrypoint_returned = false;
 std::atomic<uint8_t*> g_rdram = nullptr;
 
+struct MapSymbol {
+    uint64_t address = 0;
+    std::string name;
+};
+
+std::vector<MapSymbol> g_map_symbols;
+uint64_t g_map_preferred_base = 0;
+
+void load_probe_map_symbols() {
+    wchar_t exe_path[MAX_PATH]{};
+    const DWORD len = GetModuleFileNameW(nullptr, exe_path, static_cast<DWORD>(std::size(exe_path)));
+    if (len == 0 || len >= std::size(exe_path)) {
+        std::fprintf(stderr, "[map-symbols] Impossible de determiner le chemin EXE.\n");
+        return;
+    }
+
+    std::wstring map_path(exe_path, len);
+    const size_t dot = map_path.find_last_of(L'.');
+    if (dot != std::wstring::npos) {
+        map_path.resize(dot);
+    }
+    map_path += L".map";
+
+    std::ifstream input(map_path);
+    if (!input) {
+        std::fprintf(stderr, "[map-symbols] Fichier MAP introuvable.\n");
+        return;
+    }
+
+    std::string line;
+    while (std::getline(input, line)) {
+        const char* preferred_marker = "Preferred load address is ";
+        const size_t marker_pos = line.find(preferred_marker);
+        if (marker_pos != std::string::npos) {
+            const char* value = line.c_str() + marker_pos + std::strlen(preferred_marker);
+            g_map_preferred_base = std::strtoull(value, nullptr, 16);
+            continue;
+        }
+
+        unsigned section = 0;
+        unsigned long long section_offset = 0;
+        unsigned long long absolute = 0;
+        char name[512]{};
+        if (std::sscanf(
+                line.c_str(),
+                " %x:%llx %511s %llx",
+                &section,
+                &section_offset,
+                name,
+                &absolute
+            ) == 4) {
+            g_map_symbols.push_back(MapSymbol{
+                .address = static_cast<uint64_t>(absolute),
+                .name = name,
+            });
+        }
+    }
+
+    std::sort(
+        g_map_symbols.begin(),
+        g_map_symbols.end(),
+        [](const MapSymbol& a, const MapSymbol& b) {
+            return a.address < b.address;
+        }
+    );
+
+    std::fprintf(
+        stderr,
+        "[map-symbols] MAP charge: %zu symboles, preferred_base=0x%llX\n",
+        g_map_symbols.size(),
+        static_cast<unsigned long long>(g_map_preferred_base)
+    );
+    std::fflush(stderr);
+}
+
+void print_probe_map_symbol(uintptr_t exception_rva) {
+    if (g_map_preferred_base == 0 || g_map_symbols.empty()) {
+        return;
+    }
+
+    const uint64_t preferred_address =
+        g_map_preferred_base + static_cast<uint64_t>(exception_rva);
+
+    const auto it = std::upper_bound(
+        g_map_symbols.begin(),
+        g_map_symbols.end(),
+        preferred_address,
+        [](uint64_t address, const MapSymbol& symbol) {
+            return address < symbol.address;
+        }
+    );
+
+    if (it == g_map_symbols.begin()) {
+        return;
+    }
+
+    const MapSymbol& symbol = *std::prev(it);
+    const uint64_t delta = preferred_address - symbol.address;
+    std::fprintf(
+        stderr,
+        "[win-symbol] nearest=%s +0x%llX preferred=0x%llX\n",
+        symbol.name.c_str(),
+        static_cast<unsigned long long>(delta),
+        static_cast<unsigned long long>(preferred_address)
+    );
+}
+
+
 LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
     if (info == nullptr || info->ExceptionRecord == nullptr) {
         return EXCEPTION_CONTINUE_SEARCH;
@@ -45,6 +156,8 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
         reinterpret_cast<void*>(module_base),
         static_cast<unsigned long long>(exception_rva)
     );
+
+    print_probe_map_symbol(exception_rva);
 
     if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
         record->NumberParameters >= 2) {
@@ -69,13 +182,13 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
 
         if (rdram_base != 0 && target >= rdram_base) {
             const uint64_t offset = static_cast<uint64_t>(target - rdram_base);
-            std::fprintf(
-                stderr,
-                "[win-crash] rdram_offset=0x%llX",
-                static_cast<unsigned long long>(offset)
-            );
-
             if (offset <= 0xFFFFFFFFULL) {
+                std::fprintf(
+                    stderr,
+                    "[win-crash] rdram_offset=0x%llX",
+                    static_cast<unsigned long long>(offset)
+                );
+
                 const uint32_t low = static_cast<uint32_t>(offset);
                 if (low < 0x20000000u) {
                     std::fprintf(
@@ -91,8 +204,8 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
                         0x80000000u + low
                     );
                 }
+                std::fprintf(stderr, "\n");
             }
-            std::fprintf(stderr, "\n");
         }
     }
 
@@ -469,6 +582,7 @@ void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
 }
 
 void run_np3f_runtime_probe(const std::u8string& game_id) {
+    load_probe_map_symbols();
     SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
     const recomp::rsp::callbacks_t rsp_callbacks{
         .get_rsp_microcode = get_rsp_microcode,
