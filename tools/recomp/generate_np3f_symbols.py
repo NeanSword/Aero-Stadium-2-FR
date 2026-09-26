@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.10"
+GENERATOR_VERSION = "2026-09-27.1"
 
 try:
     import yaml
@@ -809,6 +809,23 @@ def main() -> int:
 
     if not valid:
         raise SystemExit("ERROR: no valid functions recovered from Splat assembly.")
+
+    # Aero-specific host helper names are never legitimate symbols from the
+    # original NP3F ROM. If one appears here, the cached Splat assembly is
+    # contaminated by an older local experiment and must be regenerated from
+    # the ROM instead of being propagated into N64Recomp output.
+    stale_aero_functions = [
+        func for func in valid
+        if func.original_name.startswith("aero_")
+    ]
+    if stale_aero_functions:
+        first = stale_aero_functions[0]
+        raise SystemExit(
+            "ERROR: stale Aero-specific symbol found in NP3F assembly: "
+            f"{first.original_name} at 0x{first.vram:08X} "
+            f"({first.asm_path}). Run run_np3f_recomp_prepare.ps1 without "
+            "-SkipExtract to regenerate a clean disassembly."
+        )
 
     # Overlay calls can target libultra functions that Splat does not emit as
     # glabels in --disassemble-all output. Recover the complete pinned NP3E
