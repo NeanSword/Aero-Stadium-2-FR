@@ -37,7 +37,7 @@ function Stop-StaleBuildProcesses {
 
     $Candidates = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.Name -in @("cmake.exe", "MSBuild.exe", "cl.exe", "link.exe") -and
+            $_.Name -in @("cmake.exe", "MSBuild.exe", "cl.exe", "link.exe", "AeroStadium2.exe") -and
             $_.CommandLine -and
             $_.CommandLine.ToLowerInvariant().Contains($NormalizedTarget)
         }
@@ -76,10 +76,10 @@ function Remove-BuildDirectoryRobust {
                 Start-Sleep -Milliseconds 750
             }
             else {
-                throw (
+                throw ((
                     "Impossible de nettoyer le dossier de build apres 5 tentatives: {0}. " +
                     "Ferme toute ancienne fenetre AeroStadium2/CMake/Visual Studio qui utilise ce projet puis relance."
-                ) -f $TargetBuildDir
+                ) -f $TargetBuildDir)
             }
         }
     }
