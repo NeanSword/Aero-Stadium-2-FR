@@ -2,7 +2,7 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-26.2"
+$RunnerVersion = "2026-09-26.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -42,6 +42,85 @@ $RuntimeSourceCMake = $RuntimeSource.Replace("\", "/")
 $RuntimeBuildCMake = $RuntimeBuild.Replace("\", "/")
 $Rt64SourceCMake = $Rt64Source.Replace("\", "/")
 
+function Invoke-LoggedProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$StdoutLog,
+        [Parameter(Mandatory = $true)][string]$StderrLog,
+        [Parameter(Mandatory = $true)][string]$Activity
+    )
+
+    Remove-Item -LiteralPath $StdoutLog -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $StderrLog -Force -ErrorAction SilentlyContinue
+
+    $Process = Start-Process `
+        -FilePath $FilePath `
+        -ArgumentList $ArgumentList `
+        -WorkingDirectory $WorkingDirectory `
+        -NoNewWindow `
+        -PassThru `
+        -RedirectStandardOutput $StdoutLog `
+        -RedirectStandardError $StderrLog
+
+    $StdoutSeen = 0
+    $StderrSeen = 0
+    $LastVisibleActivity = Get-Date
+
+    while (-not $Process.HasExited) {
+        Start-Sleep -Milliseconds 250
+
+        $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+            @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StdoutLines.Count -gt $StdoutSeen) {
+            for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+                Write-Host $StdoutLines[$Index]
+            }
+            $StdoutSeen = $StdoutLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+            @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StderrLines.Count -gt $StderrSeen) {
+            for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+                Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+            }
+            $StderrSeen = $StderrLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        if (((Get-Date) - $LastVisibleActivity).TotalSeconds -ge 10) {
+            Write-Host ("[{0}] Toujours en cours... PID={1}" -f $Activity, $Process.Id) -ForegroundColor DarkGray
+            $LastVisibleActivity = Get-Date
+        }
+    }
+
+    $Process.WaitForExit()
+
+    $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+        @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+        Write-Host $StdoutLines[$Index]
+    }
+
+    $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+        @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+        Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+    }
+
+    return [int]$Process.ExitCode
+}
+
+
 Write-Host "Generated NP3F library : $($GeneratedLib.FullName)"
 Write-Host "Runtime source         : $RuntimeSource"
 Write-Host "Runtime prebuilt libs  : $RuntimeBuild"
@@ -49,6 +128,7 @@ Write-Host "RT64 source            : $Rt64Source"
 Write-Host ""
 Write-Host "[1/2] Configuring first AeroStadium2.exe link..."
 $ConfigureArgs = @(
+    "-Wno-deprecated",
     "-S", ('"{0}"' -f $CMakeSource),
     "-B", ('"{0}"' -f $BuildDir),
     "-G", '"Visual Studio 17 2022"',
@@ -60,21 +140,16 @@ $ConfigureArgs = @(
     ('"-DRT64_SOURCE_DIR={0}"' -f $Rt64SourceCMake)
 )
 
-$ConfigureProcess = Start-Process `
+$ConfigureExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $ConfigureArgs `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $ConfigureStdoutLog `
-    -RedirectStandardError $ConfigureStderrLog
-$ConfigureExit = $ConfigureProcess.ExitCode
+    -StdoutLog $ConfigureStdoutLog `
+    -StderrLog $ConfigureStderrLog `
+    -Activity "CMake configure"
 $ConfigureStdout = if (Test-Path $ConfigureStdoutLog) { @(Get-Content $ConfigureStdoutLog) } else { @() }
 $ConfigureStderr = if (Test-Path $ConfigureStderrLog) { @(Get-Content $ConfigureStderrLog) } else { @() }
 @("=== CMake configure stdout ===",$ConfigureStdout,"","=== CMake configure stderr ===",$ConfigureStderr,"","=== CMake configure exit code: $ConfigureExit ===") | Set-Content -LiteralPath $ConfigureLog -Encoding UTF8
-$ConfigureStdout | ForEach-Object { Write-Host $_ }
-$ConfigureStderr | ForEach-Object { Write-Warning $_ }
 if ($ConfigureExit -ne 0) { exit $ConfigureExit }
 
 Write-Host ""
@@ -89,21 +164,16 @@ $BuildArgs = @(
     "/nodeReuse:false"
 )
 
-$BuildProcess = Start-Process `
+$BuildExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $BuildArgs `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $BuildStdoutLog `
-    -RedirectStandardError $BuildStderrLog
-$BuildExit = $BuildProcess.ExitCode
+    -StdoutLog $BuildStdoutLog `
+    -StderrLog $BuildStderrLog `
+    -Activity "MSBuild"
 $BuildStdout = if (Test-Path $BuildStdoutLog) { @(Get-Content $BuildStdoutLog) } else { @() }
 $BuildStderr = if (Test-Path $BuildStderrLog) { @(Get-Content $BuildStderrLog) } else { @() }
 @("=== CMake build stdout ===",$BuildStdout,"","=== CMake build stderr ===",$BuildStderr,"","=== CMake build exit code: $BuildExit ===") | Set-Content -LiteralPath $BuildLog -Encoding UTF8
-$BuildStdout | ForEach-Object { Write-Host $_ }
-$BuildStderr | ForEach-Object { Write-Warning $_ }
 Write-Host ""
 Write-Host "Configure log : $ConfigureLog"
 Write-Host "Build log     : $BuildLog"
