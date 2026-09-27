@@ -68,6 +68,7 @@ foreach(runtime_lib IN LISTS N64MODERNRUNTIME_LIBS)
 endforeach()
 
 add_executable(AeroStadium2
+    "${CMAKE_CURRENT_SOURCE_DIR}/aero_graphics_settings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_asset_entry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_compat.cpp"

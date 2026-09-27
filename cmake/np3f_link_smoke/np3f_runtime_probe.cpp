@@ -22,6 +22,7 @@
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
 #include "np3f_rt64_renderer.h"
+#include "aero_graphics_settings.h"
 #include "np3f_sdl_input.h"
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
@@ -339,15 +340,37 @@ ultramodern::renderer::WindowHandle create_window(void*) {
 
     RegisterClassExW(&wc);
 
+    const auto& gfx = aerostadium2::graphics::current();
+    DWORD style = gfx.fullscreen ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+    int x = CW_USEDEFAULT;
+    int y = CW_USEDEFAULT;
+    int width = gfx.window_width;
+    int height = gfx.window_height;
+
+    RECT window_rect{0, 0, width, height};
+    if (gfx.fullscreen) {
+        MONITORINFO monitor_info{};
+        monitor_info.cbSize = sizeof(monitor_info);
+        GetMonitorInfoW(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY), &monitor_info);
+        x = monitor_info.rcMonitor.left;
+        y = monitor_info.rcMonitor.top;
+        width = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+        height = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+    }
+    else if (AdjustWindowRect(&window_rect, style, FALSE)) {
+        width = window_rect.right - window_rect.left;
+        height = window_rect.bottom - window_rect.top;
+    }
+
     HWND hwnd = CreateWindowExW(
         0,
         kClassName,
         L"Aero Stadium 2 - Runtime NP3F",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        960,
-        720,
+        style,
+        x,
+        y,
+        width,
+        height,
         nullptr,
         nullptr,
         wc.hInstance,

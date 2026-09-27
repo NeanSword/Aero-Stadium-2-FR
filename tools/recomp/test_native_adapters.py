@@ -71,6 +71,26 @@ class OverlayRegistrationTests(unittest.TestCase):
         )
 
 
+class GraphicsSettingsTests(unittest.TestCase):
+    def test_hd_defaults_and_rt64_mapping_are_present(self):
+        settings = Path("cmake/np3f_link_smoke/aero_graphics_settings.cpp").read_text(
+            encoding="utf-8"
+        )
+        renderer = Path("cmake/np3f_link_smoke/np3f_rt64_renderer.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("preset=1440p", settings)
+        self.assertIn("msaa=4", settings)
+        self.assertIn("upscale_2d=all", settings)
+        self.assertIn("case ResolutionPreset::QHD1440p: return 6.0;", settings)
+        self.assertIn("case ResolutionPreset::UHD4K: return 9.0;", settings)
+        self.assertIn("RT64::UserConfiguration::Upscale2D::All", renderer)
+        self.assertIn("RT64::UserConfiguration::Antialiasing::MSAA4X", renderer)
+        self.assertIn("RT64::UserConfiguration::InternalColorFormat::High", renderer)
+        self.assertIn("loadReplacementDirectory", renderer)
+        self.assertIn('pack / L"rt64.json"', renderer)
+
+
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
         rom = bytearray(0x100)

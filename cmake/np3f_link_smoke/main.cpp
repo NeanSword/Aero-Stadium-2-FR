@@ -11,6 +11,7 @@
 
 #include "recomp.h"
 #include "librecomp/game.hpp"
+#include "aero_graphics_settings.h"
 
 namespace aerostadium2 {
 void register_np3f_overlays();
@@ -167,6 +168,7 @@ int wmain(int argc, wchar_t** argv) {
         }
     }
     std::filesystem::create_directories(config_path);
+    aerostadium2::graphics::initialize(config_path);
 
     recomp::register_config_path(config_path);
 

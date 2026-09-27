@@ -1,9 +1,11 @@
 #include "np3f_rt64_renderer.h"
+#include "aero_graphics_settings.h"
 
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <filesystem>
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -17,6 +19,7 @@
 
 #include "hle/rt64_application.h"
 #include "hle/rt64_state.h"
+#include "render/rt64_texture_cache.h"
 
 #include "ultramodern/config.hpp"
 #include "ultramodern/ultramodern.hpp"
@@ -129,22 +132,97 @@ public:
 
         app_ = std::make_unique<RT64::Application>(core, app_config);
 
-        // First graphical milestone: preserve the original presentation and
-        // remove optional enhancements until Stadium's display lists are
-        // validated end-to-end.
+        const auto& gfx = graphics::current();
+
         app_->userConfig.graphicsAPI =
             RT64::UserConfiguration::GraphicsAPI::Automatic;
         app_->userConfig.resolution =
-            RT64::UserConfiguration::Resolution::WindowIntegerScale;
+            (gfx.preset == graphics::ResolutionPreset::Original)
+                ? RT64::UserConfiguration::Resolution::Original
+                : RT64::UserConfiguration::Resolution::Manual;
+        app_->userConfig.resolutionMultiplier = graphics::resolution_multiplier();
         app_->userConfig.downsampleMultiplier = 1;
-        app_->userConfig.aspectRatio =
-            RT64::UserConfiguration::AspectRatio::Original;
-        app_->userConfig.antialiasing =
-            RT64::UserConfiguration::Antialiasing::None;
+
+        switch (gfx.msaa) {
+            case 8:
+                app_->userConfig.antialiasing = RT64::UserConfiguration::Antialiasing::MSAA8X;
+                break;
+            case 4:
+                app_->userConfig.antialiasing = RT64::UserConfiguration::Antialiasing::MSAA4X;
+                break;
+            case 2:
+                app_->userConfig.antialiasing = RT64::UserConfiguration::Antialiasing::MSAA2X;
+                break;
+            default:
+                app_->userConfig.antialiasing = RT64::UserConfiguration::Antialiasing::None;
+                break;
+        }
+
+        switch (gfx.filtering) {
+            case graphics::FilteringMode::Nearest:
+                app_->userConfig.filtering = RT64::UserConfiguration::Filtering::Nearest;
+                break;
+            case graphics::FilteringMode::Linear:
+                app_->userConfig.filtering = RT64::UserConfiguration::Filtering::Linear;
+                break;
+            case graphics::FilteringMode::AntiAliasedPixelScaling:
+            default:
+                app_->userConfig.filtering = RT64::UserConfiguration::Filtering::AntiAliasedPixelScaling;
+                break;
+        }
+
+        switch (gfx.upscale_2d) {
+            case graphics::Upscale2DMode::Original:
+                app_->userConfig.upscale2D = RT64::UserConfiguration::Upscale2D::Original;
+                break;
+            case graphics::Upscale2DMode::ScaledOnly:
+                app_->userConfig.upscale2D = RT64::UserConfiguration::Upscale2D::ScaledOnly;
+                break;
+            case graphics::Upscale2DMode::All:
+            default:
+                app_->userConfig.upscale2D = RT64::UserConfiguration::Upscale2D::All;
+                break;
+        }
+
+        app_->userConfig.threePointFiltering = gfx.three_point_filtering;
+
+        switch (gfx.aspect) {
+            case graphics::AspectMode::Expand:
+                app_->userConfig.aspectRatio = RT64::UserConfiguration::AspectRatio::Expand;
+                break;
+            case graphics::AspectMode::Widescreen16x9:
+                app_->userConfig.aspectRatio = RT64::UserConfiguration::AspectRatio::Manual;
+                app_->userConfig.aspectTarget = 16.0 / 9.0;
+                break;
+            case graphics::AspectMode::Original:
+            default:
+                app_->userConfig.aspectRatio = RT64::UserConfiguration::AspectRatio::Original;
+                break;
+        }
+        app_->userConfig.extAspectRatio = RT64::UserConfiguration::AspectRatio::Original;
+
+        app_->userConfig.displayBuffering =
+            (gfx.buffering == graphics::BufferingMode::Triple)
+                ? RT64::UserConfiguration::DisplayBuffering::Triple
+                : RT64::UserConfiguration::DisplayBuffering::Double;
+
+        switch (gfx.color) {
+            case graphics::ColorMode::Standard:
+                app_->userConfig.internalColorFormat = RT64::UserConfiguration::InternalColorFormat::Standard;
+                break;
+            case graphics::ColorMode::Automatic:
+                app_->userConfig.internalColorFormat = RT64::UserConfiguration::InternalColorFormat::Automatic;
+                break;
+            case graphics::ColorMode::High:
+            default:
+                app_->userConfig.internalColorFormat = RT64::UserConfiguration::InternalColorFormat::High;
+                break;
+        }
+
         app_->userConfig.refreshRate =
             RT64::UserConfiguration::RefreshRate::Original;
-        app_->userConfig.internalColorFormat =
-            RT64::UserConfiguration::InternalColorFormat::Automatic;
+        app_->userConfig.hardwareResolve =
+            RT64::UserConfiguration::HardwareResolve::Automatic;
         app_->userConfig.developerMode = developer_mode;
 
 #if defined(_WIN32)
@@ -155,6 +233,28 @@ public:
 
         setup_result = map_setup_result(app_->setup(setup_thread_id));
         chosen_api = map_graphics_api(app_->chosenGraphicsAPI);
+
+        if (setup_result == ultramodern::renderer::SetupResult::Success) {
+            const auto& gfx = graphics::current();
+            const std::filesystem::path pack = graphics::texture_pack_path();
+            const bool pack_is_file = !pack.empty() && std::filesystem::is_regular_file(pack);
+            const bool pack_is_directory =
+                !pack.empty() &&
+                std::filesystem::is_directory(pack) &&
+                std::filesystem::is_regular_file(pack / L"rt64.json");
+
+            if (gfx.texture_replacements && (pack_is_file || pack_is_directory) && app_->textureCache != nullptr) {
+                const bool loaded = app_->textureCache->loadReplacementDirectory(
+                    RT64::ReplacementDirectory(pack)
+                );
+                app_->textureCache->textureMap.replacementMapEnabled = loaded;
+                std::printf(
+                    "[rt64] Texture pack HD: %s (%ls)\n",
+                    loaded ? "charge" : "echec",
+                    pack.c_str()
+                );
+            }
+        }
 
         if (setup_result != ultramodern::renderer::SetupResult::Success) {
             std::fprintf(
@@ -168,9 +268,20 @@ public:
             return;
         }
 
+        const auto& gfx = graphics::current();
+        const char* aspect_name =
+            gfx.aspect == graphics::AspectMode::Original ? "4:3" :
+            (gfx.aspect == graphics::AspectMode::Expand ? "expand" : "16:9");
         std::printf(
-            "[rt64] Renderer initialise: api=%s, presentation=4:3, AA=off, cadence=originale.\n",
-            graphics_api_name(chosen_api)
+            "[rt64] Renderer initialise: api=%s, preset=%s, scale=%.2fx, MSAA=%dx, "
+            "2D=%s, aspect=%s, cadence=originale.\n",
+            graphics_api_name(chosen_api),
+            graphics::preset_name(),
+            graphics::resolution_multiplier(),
+            gfx.msaa,
+            gfx.upscale_2d == graphics::Upscale2DMode::All ? "all" :
+                (gfx.upscale_2d == graphics::Upscale2DMode::ScaledOnly ? "scaled" : "original"),
+            aspect_name
         );
         std::fflush(stdout);
     }
@@ -275,7 +386,7 @@ public:
     }
 
     float get_resolution_scale() const override {
-        return 1.0f;
+        return static_cast<float>(graphics::resolution_multiplier());
     }
 
 private:
