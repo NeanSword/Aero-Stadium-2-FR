@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.1"
+$BootstrapVersion = "2026-09-27.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -75,6 +75,103 @@ function Install-GitHubArchive {
             Remove-Item -LiteralPath $TempRoot -Recurse -Force
         }
     }
+}
+
+function Invoke-LoggedProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$StdoutLog,
+        [Parameter(Mandatory = $true)][string]$StderrLog,
+        [Parameter(Mandatory = $true)][string]$Activity,
+        [int]$HeartbeatSeconds = 10
+    )
+
+    Remove-Item -LiteralPath $StdoutLog -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $StderrLog -Force -ErrorAction SilentlyContinue
+
+    $StartedAt = Get-Date
+    $Process = Start-Process `
+        -FilePath $FilePath `
+        -ArgumentList $ArgumentList `
+        -WorkingDirectory $WorkingDirectory `
+        -NoNewWindow `
+        -PassThru `
+        -RedirectStandardOutput $StdoutLog `
+        -RedirectStandardError $StderrLog
+
+    $StdoutSeen = 0
+    $StderrSeen = 0
+    $LastVisibleActivity = Get-Date
+
+    Write-Host ("[{0}] Demarre. PID={1}" -f $Activity, $Process.Id) -ForegroundColor DarkGray
+
+    while (-not $Process.HasExited) {
+        Start-Sleep -Milliseconds 250
+
+        $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+            @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StdoutLines.Count -gt $StdoutSeen) {
+            for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+                Write-Host $StdoutLines[$Index]
+            }
+            $StdoutSeen = $StdoutLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+            @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StderrLines.Count -gt $StderrSeen) {
+            for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+                Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+            }
+            $StderrSeen = $StderrLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        if (((Get-Date) - $LastVisibleActivity).TotalSeconds -ge $HeartbeatSeconds) {
+            $Elapsed = [int]((Get-Date) - $StartedAt).TotalSeconds
+            Write-Host (
+                "[{0}] Toujours en cours... PID={1} duree={2}s" -f
+                $Activity,
+                $Process.Id,
+                $Elapsed
+            ) -ForegroundColor DarkGray
+            $LastVisibleActivity = Get-Date
+        }
+    }
+
+    $Process.WaitForExit()
+
+    $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+        @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+        Write-Host $StdoutLines[$Index]
+    }
+
+    $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+        @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+        Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+    }
+
+    $Elapsed = [int]((Get-Date) - $StartedAt).TotalSeconds
+    Write-Host (
+        "[{0}] Termine. PID={1} duree={2}s exit={3}" -f
+        $Activity,
+        $Process.Id,
+        $Elapsed,
+        $Process.ExitCode
+    ) -ForegroundColor DarkGray
+
+    return [int]$Process.ExitCode
 }
 
 Write-Host "=== Aero-Stadium-2-FR / N64ModernRuntime bootstrap ==="
@@ -285,17 +382,13 @@ $CMakeExe = (Get-Command cmake -ErrorAction Stop).Source
 # a single CMake argument on Windows PowerShell 5.1.
 $ConfigureArgumentLine = '-S "{0}" -B "{1}" -G "Visual Studio 17 2022" -A x64' -f $SourceDir, $BuildDir
 
-$ConfigureProcess = Start-Process `
+$ConfigureExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $ConfigureArgumentLine `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $ConfigureStdoutLog `
-    -RedirectStandardError $ConfigureStderrLog
-
-$ConfigureExit = $ConfigureProcess.ExitCode
+    -StdoutLog $ConfigureStdoutLog `
+    -StderrLog $ConfigureStderrLog `
+    -Activity "CMake configure"
 
 $ConfigureStdout = @()
 $ConfigureStderr = @()
@@ -336,17 +429,13 @@ Write-Host "[5/5] Building ultramodern + librecomp..."
 
 $BuildArgumentLine = '--build "{0}" --config Release --target ultramodern librecomp --parallel' -f $BuildDir
 
-$BuildProcess = Start-Process `
+$BuildExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $BuildArgumentLine `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $BuildStdoutLog `
-    -RedirectStandardError $BuildStderrLog
-
-$BuildExit = $BuildProcess.ExitCode
+    -StdoutLog $BuildStdoutLog `
+    -StderrLog $BuildStderrLog `
+    -Activity "MSBuild ultramodern+librecomp"
 
 $BuildStdout = @()
 $BuildStderr = @()
