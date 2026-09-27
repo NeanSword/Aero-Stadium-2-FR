@@ -38,7 +38,9 @@ C:\Users\dofus\.codex\.chatgpt-projects\g-p-6ab58e3c969481918cad038344c3d218\Aer
 ```
 Branche locale : **codex/native-rt64-integration**, initialement créée depuis `5a476e82b141a640fe8770a384e3fc670aaba5a5`.
 
-**À cette mise à jour, les corrections décrites sont présentes localement mais pas encore publiées dans cette branche sur GitHub.** Un checkpoint de sources puis l’intégration des changements récents de main sont en cours. Ne pas croire qu’un téléchargement de main contient déjà ces corrections.
+**Checkpoint de sources publié : [a9bd5cae](https://github.com/NeanSword/Aero-Stadium-2-FR/commit/a9bd5cae42a424e23e5d9c6f358b1bf0ec94cba6)** sur `codex/native-rt64-integration`. Son arbre est identique au commit local `6219b8c` (arbre `f58c6366e83eae30605076538c88a6c55970488c`). L’intégration des changements récents de main est en cours. Un téléchargement de main ne contient pas encore ces corrections.
+
+**Attention à l’état du dossier Downloads au 27/09 à 04:19 : plusieurs sources et l’exécutable ont été remplacés entre 00:36 et 04:06 par les versions du travail effectué sur main. Les tests du 26/09 listés ici sont ceux du checkpoint, pas ceux de l’exécutable actuellement sur disque.** Préserver ces nouveaux fichiers/logs avant de déployer la version réunie. Les derniers logs de main se trouvent dans `build/np3f/logs/NP3F_RUNTIME.*.log` (04:06). Aucun processus AeroStadium2 n’était encore actif lors de cette inspection.
 
 Le dépôt distant main a été relu et récupéré jusqu’à `6f8870ebb77cff6383659e4446c8abe211c13b7a`. Il contient d’autres travaux récents (manette SDL, génération RSP audio, diagnostics des queues, scripts de build). Il faut les rapprocher du travail local sans écraser les corrections testées ni réintroduire le mauvais enregistrement des fragments.
 
@@ -126,7 +128,7 @@ build/CODEX_RSP_RECOMP.log
 
 ## Prochaine séquence de travail
 
-1. Publier un checkpoint des sources locales, puis rapprocher les changements de main. Préserver les deux historiques.
+1. Checkpoint publié (a9bd5cae). Rapprocher les changements de main et du checkpoint, sauvegarder les fichiers Downloads remplacés, reconstruire et retester cette version réunie.
 2. Identifier la tâche **RSP type 4 à 0x80085390** depuis les octets et l’OSTask locaux (probablement un autre microcode de traitement ; ne pas supposer sa fonction sans vérification). La recompiler ou fournir une implémentation fidèle, sans la remplacer par un succès factice.
 3. Relancer le test borné de 40–60 secondes, puis vérifier l’écran et les commandes.
 4. Corriger le PAL réel : le probe force osTvType=PAL mais le runtime local utilise encore une cadence VI 60 Hz et ignore les facteurs de osViSetXScale/YScale. Le renderer annonçant 50 Hz ne suffit pas.
