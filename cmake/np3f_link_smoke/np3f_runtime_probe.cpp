@@ -24,6 +24,10 @@
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 
+#if defined(AEROSTADIUM2_WITH_NP3F_RSP_AUDIO)
+extern RspUcodeFunc aspMain_np3f;
+#endif
+
 namespace {
 
 std::atomic_bool g_logged_display_list = false;
@@ -520,17 +524,50 @@ void log_rsp_signature(const OSTask* task) {
     std::fflush(stderr);
 }
 
+bool is_np3f_audio_rsp_task(const OSTask* task) {
+    if (task == nullptr) {
+        return false;
+    }
+
+    return
+        task->t.type == M_AUDTASK &&
+        static_cast<uint32_t>(task->t.ucode) == 0x80000460u &&
+        static_cast<uint32_t>(task->t.ucode_size) == 0x1000u &&
+        static_cast<uint32_t>(task->t.ucode_data) == 0x80087010u &&
+        static_cast<uint32_t>(task->t.ucode_data_size) == 0x2DFu;
+}
+
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
     log_rsp_signature(task);
 
-    if (!g_logged_rsp_task.exchange(true)) {
+    const bool first_rsp_task = !g_logged_rsp_task.exchange(true);
+    if (first_rsp_task) {
         std::printf(
             "[runtime-probe] Premiere tache RSP recue: type=%u ucode=0x%08X data=0x%08X\n",
             task->t.type,
             task->t.ucode,
             task->t.ucode_data
         );
-        std::printf("[runtime-probe] RSP temporairement acquitte en mode diagnostic.\n");
+    }
+
+#if defined(AEROSTADIUM2_WITH_NP3F_RSP_AUDIO)
+    if (is_np3f_audio_rsp_task(task)) {
+        static std::atomic_bool logged_audio_rsp = false;
+        if (!logged_audio_rsp.exchange(true)) {
+            std::printf(
+                "[runtime-probe] Microcode audio NP3F reel actif: aspMain_np3f.\n"
+            );
+            std::fflush(stdout);
+        }
+        return aspMain_np3f;
+    }
+#endif
+
+    if (first_rsp_task) {
+        std::printf(
+            "[runtime-probe] RSP non pris en charge: fallback diagnostic Broke.\n"
+        );
+        std::fflush(stdout);
     }
     return probe_rsp_ucode;
 }
