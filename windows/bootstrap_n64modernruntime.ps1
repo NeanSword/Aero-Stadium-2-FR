@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.5"
+$BootstrapVersion = "2026-09-27.6"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -720,8 +720,242 @@ else {
     throw "Could not find expected osSetEventMesg block in N64ModernRuntime."
 }
 
-if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
-    Remove-Item -LiteralPath $BuildDir -Recurse -Force
+# Additional Stadium 2 boot diagnostics: trace direct guest NOBLOCK send
+# failures, SP/DP completion production, gfx task submission and VI queue
+# registration. Observability only; no queue or scheduler behavior changes.
+$DirectSendDiagMarker = "// Aero-Stadium-2-FR direct NOBLOCK send diagnostics 2026-09-27.1"
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+$OriginalDirectNoblockFull = @"
+    if (!block) {
+        // If non-blocking, fail if the queue is full.
+        if (MQ_IS_FULL(mq)) {
+            return false;
+        }
+    }
+"@
+$PatchedDirectNoblockFull = @"
+    $DirectSendDiagMarker
+    if (!block) {
+        // If non-blocking, fail if the queue is full.
+        if (MQ_IS_FULL(mq)) {
+            static uint32_t aero_noblock_full_logs = 0;
+            if (aero_noblock_full_logs < 128) {
+                const bool from_game_thread = ultramodern::is_game_thread();
+                uint32_t thread_addr = 0;
+                int thread_id = -1;
+                int thread_pri = -1;
+                if (from_game_thread) {
+                    const PTR(OSThread) current_thread_addr = ultramodern::this_thread();
+                    OSThread* current_thread = TO_PTR(OSThread, current_thread_addr);
+                    thread_addr = static_cast<uint32_t>(current_thread_addr);
+                    thread_id = current_thread->id;
+                    thread_pri = current_thread->priority;
+                }
+                std::fprintf(
+                    stderr,
+                    "[mq-noblock-full] origin=%s mq=0x%08X msg=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                    from_game_thread ? "game" : "external",
+                    static_cast<uint32_t>(mq_),
+                    static_cast<uint32_t>(msg),
+                    thread_addr,
+                    thread_id,
+                    thread_pri,
+                    mq->validCount,
+                    mq->msgCount
+                );
+                std::fflush(stderr);
+                ++aero_noblock_full_logs;
+            }
+            return false;
+        }
+    }
+"@
+
+if ($MesgQueueText.Contains($DirectSendDiagMarker)) {
+    if (-not $MesgQueueText.Contains($PatchedDirectNoblockFull)) {
+        throw "Direct NOBLOCK diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Direct NOBLOCK send diagnostics already applied."
+}
+elseif ($MesgQueueText.Contains($OriginalDirectNoblockFull)) {
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalDirectNoblockFull,
+        $PatchedDirectNoblockFull
+    )
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied direct NOBLOCK send diagnostics: ultramodern"
+}
+else {
+    throw "Could not find expected do_send NOBLOCK block in N64ModernRuntime."
+}
+
+$RuntimeEventsText = Get-Content -LiteralPath $RuntimeEventsCpp -Raw
+$RcpCompletionDiagMarker = "// Aero-Stadium-2-FR SP/DP completion diagnostics 2026-09-27.1"
+$OriginalCompletionFunctions = @"
+void sp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    ultramodern::enqueue_external_message_src(events_context.sp.mq, events_context.sp.msg, false, ultramodern::EventMessageSource::Sp);
+}
+
+void dp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    ultramodern::enqueue_external_message_src(events_context.dp.mq, events_context.dp.msg, false, ultramodern::EventMessageSource::Dp);
+}
+"@
+$PatchedCompletionFunctions = @"
+$RcpCompletionDiagMarker
+void sp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    static std::atomic<uint32_t> aero_sp_completion_count{0};
+    const uint32_t completion_index = aero_sp_completion_count.fetch_add(1) + 1;
+    if (completion_index <= 256) {
+        std::fprintf(
+            stderr,
+            "[rcp-produce] SP #%u mq=0x%08X msg=0x%08X\n",
+            completion_index,
+            static_cast<uint32_t>(events_context.sp.mq),
+            static_cast<uint32_t>(events_context.sp.msg)
+        );
+        std::fflush(stderr);
+    }
+    ultramodern::enqueue_external_message_src(events_context.sp.mq, events_context.sp.msg, false, ultramodern::EventMessageSource::Sp);
+}
+
+void dp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    static std::atomic<uint32_t> aero_dp_completion_count{0};
+    const uint32_t completion_index = aero_dp_completion_count.fetch_add(1) + 1;
+    if (completion_index <= 256) {
+        std::fprintf(
+            stderr,
+            "[rcp-produce] DP #%u mq=0x%08X msg=0x%08X\n",
+            completion_index,
+            static_cast<uint32_t>(events_context.dp.mq),
+            static_cast<uint32_t>(events_context.dp.msg)
+        );
+        std::fflush(stderr);
+    }
+    ultramodern::enqueue_external_message_src(events_context.dp.mq, events_context.dp.msg, false, ultramodern::EventMessageSource::Dp);
+}
+"@
+
+if ($RuntimeEventsText.Contains($RcpCompletionDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedCompletionFunctions)) {
+        throw "SP/DP completion diagnostic marker exists, but patched functions do not match expected content."
+    }
+    Write-Host "SP/DP completion diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalCompletionFunctions)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalCompletionFunctions,
+        $PatchedCompletionFunctions
+    )
+}
+else {
+    throw "Could not find expected sp_complete/dp_complete functions in N64ModernRuntime."
+}
+
+$GfxSubmitDiagMarker = "// Aero-Stadium-2-FR gfx task submission diagnostics 2026-09-27.1"
+$OriginalGfxSubmitBlock = @"
+    // Send gfx tasks to the graphics action queue
+    if (task->t.type == M_GFXTASK) {
+        events_context.action_queue.enqueue(SpTaskAction{ *task });
+    }
+"@
+$PatchedGfxSubmitBlock = @"
+    // Send gfx tasks to the graphics action queue
+    $GfxSubmitDiagMarker
+    if (task->t.type == M_GFXTASK) {
+        static std::atomic<uint32_t> aero_gfx_submit_count{0};
+        const uint32_t submit_index = aero_gfx_submit_count.fetch_add(1) + 1;
+        if (submit_index <= 128) {
+            std::fprintf(
+                stderr,
+                "[gfx-submit] #%u data=0x%08X size=0x%08X ucode=0x%08X ucode_data=0x%08X\n",
+                submit_index,
+                static_cast<uint32_t>(task->t.data_ptr),
+                static_cast<uint32_t>(task->t.data_size),
+                static_cast<uint32_t>(task->t.ucode),
+                static_cast<uint32_t>(task->t.ucode_data)
+            );
+            std::fflush(stderr);
+        }
+        events_context.action_queue.enqueue(SpTaskAction{ *task });
+    }
+"@
+
+if ($RuntimeEventsText.Contains($GfxSubmitDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedGfxSubmitBlock)) {
+        throw "Gfx submission diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Gfx task submission diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalGfxSubmitBlock)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalGfxSubmitBlock,
+        $PatchedGfxSubmitBlock
+    )
+}
+else {
+    throw "Could not find expected gfx task submission block in N64ModernRuntime."
+}
+
+$ViRegDiagMarker = "// Aero-Stadium-2-FR VI queue registration diagnostics 2026-09-27.1"
+$OriginalViSetEvent = @"
+extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 retrace_count) {
+    std::lock_guard lock{ events_context.message_mutex };
+    ViState* next_state = events_context.vi.get_next_state();
+    next_state->mq = mq_;
+    next_state->msg = msg;
+    next_state->retrace_count = retrace_count;
+}
+"@
+$PatchedViSetEvent = @"
+extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 retrace_count) {
+    std::lock_guard lock{ events_context.message_mutex };
+    $ViRegDiagMarker
+    static uint32_t aero_vi_reg_logs = 0;
+    if (aero_vi_reg_logs < 32) {
+        std::fprintf(
+            stderr,
+            "[mq-vi-reg] mq=0x%08X msg=0x%08X retrace=%u\n",
+            static_cast<uint32_t>(mq_),
+            static_cast<uint32_t>(msg),
+            retrace_count
+        );
+        std::fflush(stderr);
+        ++aero_vi_reg_logs;
+    }
+    ViState* next_state = events_context.vi.get_next_state();
+    next_state->mq = mq_;
+    next_state->msg = msg;
+    next_state->retrace_count = retrace_count;
+}
+"@
+
+if ($RuntimeEventsText.Contains($ViRegDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedViSetEvent)) {
+        throw "VI registration diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "VI queue registration diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalViSetEvent)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalViSetEvent,
+        $PatchedViSetEvent
+    )
+}
+else {
+    throw "Could not find expected osViSetEvent block in N64ModernRuntime."
+}
+
+Set-Content -LiteralPath $RuntimeEventsCpp -Value $RuntimeEventsText -Encoding UTF8
+
+if ($Force -and (Test-Path -LiteralPath $BuildDir)) {    Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
@@ -855,6 +1089,7 @@ $Versions = @{
     aero_windows_shutdown_rdram_patch = "2026-09-27.1"
     aero_message_queue_diagnostics = "2026-09-27.1"
     aero_queue_flow_diagnostics = "2026-09-27.1"
+    aero_rcp_completion_diagnostics = "2026-09-27.1"
 }
 
 $Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8
