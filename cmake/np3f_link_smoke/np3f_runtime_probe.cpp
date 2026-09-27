@@ -36,6 +36,24 @@ std::atomic_bool g_shutdown_requested = false;
 std::atomic_bool g_quit_called = false;
 std::atomic_bool g_recomp_start_returned = false;
 
+struct RspTaskSignature {
+    uint32_t type = 0;
+    uint32_t flags = 0;
+    uint32_t ucode_boot = 0;
+    uint32_t ucode_boot_size = 0;
+    uint32_t ucode = 0;
+    uint32_t ucode_size = 0;
+    uint32_t ucode_data = 0;
+    uint32_t ucode_data_size = 0;
+    uint32_t data_ptr = 0;
+    uint32_t data_size = 0;
+    uint32_t boot_word0 = 0;
+    uint32_t boot_word1 = 0;
+};
+
+std::array<RspTaskSignature, 16> g_rsp_signatures{};
+size_t g_rsp_signature_count = 0;
+
 struct MapSymbol {
     uint64_t address = 0;
     std::string name;
@@ -398,7 +416,113 @@ RspExitReason probe_rsp_ucode(uint8_t*, uint32_t) {
     return RspExitReason::Broke;
 }
 
+bool read_rdram_be_word(uint8_t* rdram, uint32_t vaddr, uint32_t* out) {
+    constexpr uint32_t kReadableRdramSize = 0x20000000u;
+    if (rdram == nullptr || out == nullptr) {
+        return false;
+    }
+
+    const uint32_t paddr = vaddr & 0x1FFFFFFFu;
+    if (paddr > kReadableRdramSize - sizeof(uint32_t)) {
+        return false;
+    }
+
+    *out =
+        (uint32_t(rdram[(paddr + 0u) ^ 3u]) << 24) |
+        (uint32_t(rdram[(paddr + 1u) ^ 3u]) << 16) |
+        (uint32_t(rdram[(paddr + 2u) ^ 3u]) << 8) |
+        (uint32_t(rdram[(paddr + 3u) ^ 3u]) << 0);
+    return true;
+}
+
+bool same_rsp_signature(const RspTaskSignature& a, const RspTaskSignature& b) {
+    return
+        a.type == b.type &&
+        a.flags == b.flags &&
+        a.ucode_boot == b.ucode_boot &&
+        a.ucode_boot_size == b.ucode_boot_size &&
+        a.ucode == b.ucode &&
+        a.ucode_size == b.ucode_size &&
+        a.ucode_data == b.ucode_data &&
+        a.ucode_data_size == b.ucode_data_size &&
+        a.data_ptr == b.data_ptr &&
+        a.data_size == b.data_size &&
+        a.boot_word0 == b.boot_word0 &&
+        a.boot_word1 == b.boot_word1;
+}
+
+void log_rsp_signature(const OSTask* task) {
+    if (task == nullptr) {
+        return;
+    }
+
+    RspTaskSignature signature{};
+    signature.type = static_cast<uint32_t>(task->t.type);
+    signature.flags = static_cast<uint32_t>(task->t.flags);
+    signature.ucode_boot = static_cast<uint32_t>(task->t.ucode_boot);
+    signature.ucode_boot_size = static_cast<uint32_t>(task->t.ucode_boot_size);
+    signature.ucode = static_cast<uint32_t>(task->t.ucode);
+    signature.ucode_size = static_cast<uint32_t>(task->t.ucode_size);
+    signature.ucode_data = static_cast<uint32_t>(task->t.ucode_data);
+    signature.ucode_data_size = static_cast<uint32_t>(task->t.ucode_data_size);
+    signature.data_ptr = static_cast<uint32_t>(task->t.data_ptr);
+    signature.data_size = static_cast<uint32_t>(task->t.data_size);
+
+    uint8_t* rdram = g_rdram.load();
+    if (signature.ucode_boot != 0) {
+        (void)read_rdram_be_word(rdram, signature.ucode_boot + 0u, &signature.boot_word0);
+        (void)read_rdram_be_word(rdram, signature.ucode_boot + 4u, &signature.boot_word1);
+    }
+
+    for (size_t i = 0; i < g_rsp_signature_count; i++) {
+        if (same_rsp_signature(g_rsp_signatures[i], signature)) {
+            return;
+        }
+    }
+
+    if (g_rsp_signature_count >= g_rsp_signatures.size()) {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            std::fprintf(
+                stderr,
+                "[rsp-signature] Limite de %zu signatures distinctes atteinte; les suivantes ne seront pas journalisees.\n",
+                g_rsp_signatures.size()
+            );
+            std::fflush(stderr);
+        }
+        return;
+    }
+
+    const size_t index = g_rsp_signature_count++;
+    g_rsp_signatures[index] = signature;
+
+    std::fprintf(
+        stderr,
+        "[rsp-signature] #%zu type=%u flags=0x%08X "
+        "boot=0x%08X boot_size=0x%X boot_word0=0x%08X boot_word1=0x%08X "
+        "ucode=0x%08X ucode_size=0x%X ucode_data=0x%08X ucode_data_size=0x%X "
+        "data=0x%08X data_size=0x%X\n",
+        index + 1,
+        signature.type,
+        signature.flags,
+        signature.ucode_boot,
+        signature.ucode_boot_size,
+        signature.boot_word0,
+        signature.boot_word1,
+        signature.ucode,
+        signature.ucode_size,
+        signature.ucode_data,
+        signature.ucode_data_size,
+        signature.data_ptr,
+        signature.data_size
+    );
+    std::fflush(stderr);
+}
+
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
+    log_rsp_signature(task);
+
     if (!g_logged_rsp_task.exchange(true)) {
         std::printf(
             "[runtime-probe] Premiere tache RSP recue: type=%u ucode=0x%08X data=0x%08X\n",
@@ -621,6 +745,8 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
     g_shutdown_requested.store(false);
     g_quit_called.store(false);
     g_recomp_start_returned.store(false);
+    g_rsp_signature_count = 0;
+    g_rsp_signatures.fill(RspTaskSignature{});
     load_probe_map_symbols();
     SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
     const recomp::rsp::callbacks_t rsp_callbacks{
