@@ -4,9 +4,9 @@ Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
 ## Dernière avancée — checkpoint publié et blocage du menu identifié
 
-**Sources publiées : [e2221be](https://github.com/NeanSword/Aero-Stadium-2-FR/commit/e2221be441b5b55008fc74f5283541a7cbafaf42)** sur codex/native-rt64-integration. Arbre e79feff16e4fe6d38038d3ee322e6da8808e5ee1, identique au commit local 078588f. La fusion locale est terminée et synchronisée ; main reçoit le journal, les corrections de code restent sur la branche.
+**Sources publiées : branche `codex/native-rt64-integration` à `8366cabdd925344ec87a656e5e1d510773ba55de`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif du décodeur d'image et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
-Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` à 0x80003BB0, pendant le décodage d'une image. Un hook local `aero_poll_events` a été ajouté dans cette boucle pour laisser traiter les événements de fin SP/DP sans forcer le drapeau attendu. Reconstruction/test en cours, **ce hook est postérieur au checkpoint e2221be**.
+Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` à `0x80003BB0`, pendant le décodage d'une image. Le hook désormais publié ajoute `aero_poll_events(rdram)` **uniquement avant `0x80003BB0` dans `func_80003AC0`**, pour laisser traiter les événements de fin SP/DP sans forcer le drapeau attendu. `tools/recomp/test_native_adapters.py` vérifie que ce hook exact reste présent une seule fois. **Le résultat runtime de ce hook n'est pas encore validé : reconstruction/test Windows à faire.**
 
 Audio mesuré sur ce test : **3 762 880 échantillons, pic 21 951**. Cela prouve une production non silencieuse, pas la qualité sonore. Les textures noires signalées par l'utilisateur restent à diagnostiquer.
 
