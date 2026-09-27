@@ -1,7 +1,7 @@
 param()
 
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "2026-09-27.2"
+$RunnerVersion = "2026-09-27.3"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
@@ -43,7 +43,9 @@ if ($DefinitionMatches.Count -ne 1) {
     $Summary = $ClassifiedMatches | ForEach-Object {
         "{0}:{1}: definition={2} :: {3}" -f $_.Path, $_.LineNumber, $_.IsDefinition, $_.Line
     }
-    throw ("Expected exactly one generated definition for func_80035594, found {0}. Occurrences:" + [Environment]::NewLine + "{1}" -f $DefinitionMatches.Count, ($Summary -join [Environment]::NewLine))
+    $SummaryText = $Summary -join [Environment]::NewLine
+    $Message = "Expected exactly one generated definition for func_80035594, found $($DefinitionMatches.Count). Occurrences:" + [Environment]::NewLine + $SummaryText
+    throw $Message
 }
 
 $SourcePath = $DefinitionMatches[0].Path
