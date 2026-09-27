@@ -1,7 +1,7 @@
 param()
 
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "2026-09-27.1"
+$RunnerVersion = "2026-09-27.2"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
@@ -14,19 +14,41 @@ if (-not (Test-Path -LiteralPath $GeneratedDir -PathType Container)) {
     throw "Generated NP3F directory not found: $GeneratedDir"
 }
 
-$Matches = Get-ChildItem -LiteralPath $GeneratedDir -Filter "funcs_*.c" -File |
-    Select-String -Pattern "\bfunc_80035594\s*\(" -List
+$Matches = @(
+    Get-ChildItem -LiteralPath $GeneratedDir -Filter "funcs_*.c" -File |
+        Select-String -Pattern "\bfunc_80035594\s*\("
+)
 
-if ($Matches.Count -ne 1) {
-    throw "Expected exactly one generated definition candidate for func_80035594, found $($Matches.Count)."
+$ClassifiedMatches = New-Object System.Collections.Generic.List[object]
+foreach ($Match in $Matches) {
+    $CandidateLines = @(Get-Content -LiteralPath $Match.Path)
+    $CandidateStart = $Match.LineNumber - 1
+    $CandidateEnd = [Math]::Min($CandidateLines.Count - 1, $CandidateStart + 8)
+    $SignatureText = ($CandidateLines[$CandidateStart..$CandidateEnd] -join " ")
+
+    $OpenBraceIndex = $SignatureText.IndexOf("{")
+    $SemicolonIndex = $SignatureText.IndexOf(";")
+    $IsDefinition = $OpenBraceIndex -ge 0 -and ($SemicolonIndex -lt 0 -or $OpenBraceIndex -lt $SemicolonIndex)
+
+    $ClassifiedMatches.Add([pscustomobject]@{
+        Path = $Match.Path
+        LineNumber = $Match.LineNumber
+        Line = $Match.Line.Trim()
+        IsDefinition = $IsDefinition
+    })
 }
 
-$SourcePath = $Matches[0].Path
-$Lines = @(Get-Content -LiteralPath $SourcePath)
-$Start = $Matches[0].LineNumber - 1
+$DefinitionMatches = @($ClassifiedMatches | Where-Object { $_.IsDefinition })
+if ($DefinitionMatches.Count -ne 1) {
+    $Summary = $ClassifiedMatches | ForEach-Object {
+        "{0}:{1}: definition={2} :: {3}" -f $_.Path, $_.LineNumber, $_.IsDefinition, $_.Line
+    }
+    throw ("Expected exactly one generated definition for func_80035594, found {0}. Occurrences:" + [Environment]::NewLine + "{1}" -f $DefinitionMatches.Count, ($Summary -join [Environment]::NewLine))
+}
 
-# Walk backwards a few lines if the signature is split across lines.
-while ($Start -gt 0 -and $Lines[$Start] -notmatch "func_80035594") { $Start-- }
+$SourcePath = $DefinitionMatches[0].Path
+$Lines = @(Get-Content -LiteralPath $SourcePath)
+$Start = $DefinitionMatches[0].LineNumber - 1
 
 $BraceDepth = 0
 $SeenOpeningBrace = $false
@@ -55,6 +77,11 @@ $Report.Add("=== NP3F func_80035594 generated-source diagnostic ===")
 $Report.Add("Runner version: $RunnerVersion")
 $Report.Add("Source: $SourcePath")
 $Report.Add("Function lines: $($Start + 1)-$($End + 1)")
+$Report.Add("")
+$Report.Add("=== All func_80035594 occurrences ===")
+foreach ($Occurrence in $ClassifiedMatches) {
+    $Report.Add(("{0}:{1}: definition={2} :: {3}" -f $Occurrence.Path, $Occurrence.LineNumber, $Occurrence.IsDefinition, $Occurrence.Line))
+}
 $Report.Add("")
 $Report.Add("=== Function source ===")
 for ($i = $Start; $i -le $End; $i++) {
