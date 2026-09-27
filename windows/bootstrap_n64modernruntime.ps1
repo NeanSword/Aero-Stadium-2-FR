@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.2"
+$BootstrapVersion = "2026-09-27.3"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -355,6 +355,210 @@ else {
     throw "Could not find the expected N64ModernRuntime Windows RDRAM release block. Refusing to patch an unexpected source revision."
 }
 
+# Diagnose external OSMesgQueue delivery failures without changing runtime
+# behavior. Stadium 2 can softlock if an external completion message reaches a
+# temporarily full guest queue. Keep the existing requeue/drop policy intact,
+# but preserve the event source and log failed non-blocking deliveries.
+$MesgQueueCpp = Join-Path $SourceDir "ultramodern\src\mesgqueue.cpp"
+if (-not (Test-Path -LiteralPath $MesgQueueCpp -PathType Leaf)) {
+    throw "Runtime message queue source file not found: $MesgQueueCpp"
+}
+
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+$MesgQueueDiagMarker = "// Aero-Stadium-2-FR external message queue diagnostics 2026-09-27.1"
+
+$OriginalMesgQueueIncludes = @"
+#include <bitset>
+#include <thread>
+"@
+$PatchedMesgQueueIncludes = @"
+#include <bitset>
+#include <thread>
+#include <cstdio>
+"@
+
+$OriginalQueuedMessage = @"
+struct QueuedMessage {
+    PTR(OSMesgQueue) mq;
+    OSMesg mesg;
+    bool jam;
+    bool requeue_if_blocked;
+};
+"@
+$PatchedQueuedMessage = @"
+struct QueuedMessage {
+    PTR(OSMesgQueue) mq;
+    OSMesg mesg;
+    bool jam;
+    bool requeue_if_blocked;
+    int source;
+};
+"@
+
+$OriginalEnqueueSource = @"
+void ultramodern::enqueue_external_message_src(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, EventMessageSource src) {
+    external_messages.enqueue({mq, msg, jam, requeue_enabled[static_cast<int>(src)]});
+}
+
+void ultramodern::enqueue_external_message(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, bool requeue_if_blocked) {
+    external_messages.enqueue({mq, msg, jam, requeue_if_blocked});
+}
+"@
+$PatchedEnqueueSource = @"
+void ultramodern::enqueue_external_message_src(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, EventMessageSource src) {
+    external_messages.enqueue({mq, msg, jam, requeue_enabled[static_cast<int>(src)], static_cast<int>(src)});
+}
+
+void ultramodern::enqueue_external_message(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, bool requeue_if_blocked) {
+    external_messages.enqueue({mq, msg, jam, requeue_if_blocked, -1});
+}
+"@
+
+$OriginalExternalDelivery = @"
+void dequeue_external_messages(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    std::vector<QueuedMessage> requeued_messages{};
+    while (external_messages.try_dequeue(to_send)) {
+        if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+            requeued_messages.push_back(to_send);
+        }
+    }
+    for (QueuedMessage& cur_mesg : requeued_messages) {
+        external_messages.enqueue(cur_mesg);
+    }
+}
+
+void ultramodern::wait_for_external_message(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    external_messages.wait_dequeue(to_send);
+    if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+        external_messages.enqueue(to_send);
+    }
+}
+
+void ultramodern::wait_for_external_message_timed(RDRAM_ARG u32 millis) {
+    QueuedMessage to_send;
+    if (external_messages.wait_dequeue_timed(to_send, std::chrono::milliseconds{millis})) {
+        if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+            external_messages.enqueue(to_send);
+        }
+    }
+}
+"@
+
+$PatchedExternalDelivery = @"
+$MesgQueueDiagMarker
+const char* aerostadium2_event_source_name(int source) {
+    switch (source) {
+        case static_cast<int>(ultramodern::EventMessageSource::Timer): return "Timer";
+        case static_cast<int>(ultramodern::EventMessageSource::Sp): return "SP";
+        case static_cast<int>(ultramodern::EventMessageSource::Si): return "SI";
+        case static_cast<int>(ultramodern::EventMessageSource::Ai): return "AI";
+        case static_cast<int>(ultramodern::EventMessageSource::Vi): return "VI";
+        case static_cast<int>(ultramodern::EventMessageSource::Pi): return "PI";
+        case static_cast<int>(ultramodern::EventMessageSource::Dp): return "DP";
+        default: return "generic";
+    }
+}
+
+void aerostadium2_log_external_send_failure(RDRAM_ARG const QueuedMessage& message) {
+    static uint32_t logged_failures = 0;
+    if (logged_failures >= 256) {
+        return;
+    }
+
+    OSMesgQueue* mq = TO_PTR(OSMesgQueue, message.mq);
+    std::fprintf(
+        stderr,
+        "[mq-ext-fail] source=%s mq=0x%08X msg=0x%08X jam=%d requeue=%d valid=%d count=%d\n",
+        aerostadium2_event_source_name(message.source),
+        static_cast<uint32_t>(message.mq),
+        static_cast<uint32_t>(message.mesg),
+        message.jam ? 1 : 0,
+        message.requeue_if_blocked ? 1 : 0,
+        mq->validCount,
+        mq->msgCount
+    );
+    std::fflush(stderr);
+    ++logged_failures;
+}
+
+void dequeue_external_messages(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    std::vector<QueuedMessage> requeued_messages{};
+    while (external_messages.try_dequeue(to_send)) {
+        const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+        if (!sent) {
+            aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+            if (to_send.requeue_if_blocked) {
+                requeued_messages.push_back(to_send);
+            }
+        }
+    }
+    for (QueuedMessage& cur_mesg : requeued_messages) {
+        external_messages.enqueue(cur_mesg);
+    }
+}
+
+void ultramodern::wait_for_external_message(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    external_messages.wait_dequeue(to_send);
+    const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+    if (!sent) {
+        aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+        if (to_send.requeue_if_blocked) {
+            external_messages.enqueue(to_send);
+        }
+    }
+}
+
+void ultramodern::wait_for_external_message_timed(RDRAM_ARG u32 millis) {
+    QueuedMessage to_send;
+    if (external_messages.wait_dequeue_timed(to_send, std::chrono::milliseconds{millis})) {
+        const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+        if (!sent) {
+            aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+            if (to_send.requeue_if_blocked) {
+                external_messages.enqueue(to_send);
+            }
+        }
+    }
+}
+"@
+
+if ($MesgQueueText.Contains($MesgQueueDiagMarker)) {
+    foreach ($ExpectedBlock in @(
+        $PatchedMesgQueueIncludes,
+        $PatchedQueuedMessage,
+        $PatchedEnqueueSource,
+        $PatchedExternalDelivery
+    )) {
+        if (-not $MesgQueueText.Contains($ExpectedBlock)) {
+            throw "N64ModernRuntime message queue diagnostic marker exists, but a patched block does not match the expected content."
+        }
+    }
+    Write-Host "External message queue diagnostics already applied."
+}
+else {
+    foreach ($RequiredBlock in @(
+        $OriginalMesgQueueIncludes,
+        $OriginalQueuedMessage,
+        $OriginalEnqueueSource,
+        $OriginalExternalDelivery
+    )) {
+        if (-not $MesgQueueText.Contains($RequiredBlock)) {
+            throw "Could not find an expected N64ModernRuntime message queue block. Refusing to patch an unexpected source revision."
+        }
+    }
+
+    $MesgQueueText = $MesgQueueText.Replace($OriginalMesgQueueIncludes, $PatchedMesgQueueIncludes)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalQueuedMessage, $PatchedQueuedMessage)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalEnqueueSource, $PatchedEnqueueSource)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalExternalDelivery, $PatchedExternalDelivery)
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied external OSMesgQueue delivery diagnostics: ultramodern"
+}
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
@@ -488,6 +692,7 @@ $Versions = @{
     miniz = "8573fd7cd6f49b262a0ccc447f3c6acfc415e556"
     o1heap = "a124b850791db2a33f7354d2b0aa7da821cef6f5"
     aero_windows_shutdown_rdram_patch = "2026-09-27.1"
+    aero_message_queue_diagnostics = "2026-09-27.1"
 }
 
 $Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8
