@@ -55,6 +55,22 @@ class ManualFunctionBoundaryTests(unittest.TestCase):
         )
 
 
+class OverlayRegistrationTests(unittest.TestCase):
+    def test_unmap_clears_runtime_preload_even_before_local_loaded_flag(self):
+        source = Path("cmake/np3f_link_smoke/np3f_register_overlays.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "if (slot >= fragment_loaded.size() || fragment_sections[slot] < 0)",
+            source,
+        )
+        self.assertIn("unload_overlay_by_id(slot);", source)
+        self.assertNotIn(
+            "slot < fragment_loaded.size() && fragment_loaded[slot]",
+            source,
+        )
+
+
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
         rom = bytearray(0x100)

@@ -18,10 +18,18 @@ extern "C" void unload_overlay_by_id(uint32_t id);
 extern "C" void load_overlay_by_id(uint32_t id, uint32_t ram_addr);
 
 extern "C" void aero_unmap_fragment(uint32_t slot) {
-    if (slot < fragment_loaded.size() && fragment_loaded[slot]) {
-        unload_overlay_by_id(slot);
-        fragment_loaded[slot] = false;
+    if (slot >= fragment_loaded.size() || fragment_sections[slot] < 0) {
+        return;
     }
+
+    // N64ModernRuntime preloads every compiled section found in the first
+    // 1 MiB of ROM before Stadium's fragment registry runs. Such a section is
+    // already present in librecomp's loaded_sections even though our local
+    // fragment_loaded[] flag is still false. Always ask librecomp to unload a
+    // compiled slot so section_addresses[] is reset to its nominal VRAM before
+    // load_overlay_by_id() remaps it to Stadium's actual runtime allocation.
+    unload_overlay_by_id(slot);
+    fragment_loaded[slot] = false;
 }
 
 extern "C" void aero_map_fragment(uint32_t slot, int32_t ram, uint32_t size) {
