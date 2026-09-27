@@ -1,8 +1,18 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **27 septembre 2026, 04:22 Europe/Paris**, session locale Codex/Work.
+Dernière mise à jour : **27 septembre 2026, 04:43 Europe/Paris**, session locale Codex/Work.
 
-## Point de reprise actuel
+## Avancée du 27/09 à 04:43 — version réunie testée
+
+- Les sources récentes de main et le checkpoint ont été réunies, sauvegardées puis déployées dans Downloads. Ancienne version préservée dans `build/codex-backup-20260927-042913/`.
+- Préparation complète et compilation MSVC réussies ; CTest `asset_entry` réussi. Audio réel `aspMain_np3f` et manettes SDL conservés.
+- Le programme RSP type 4 est désormais recompilé depuis ROM 0x85F90, plage exécutable 0xAF0 octets, entrée IMEM 0x1080. Signature et cibles de branchement vérifiées. Aucun résultat de tâche factice.
+- Test `build/np3f/probes/20260927-043845-087` : type 4 exécuté, introduction franchie, plus de 1 563 listes graphiques achevées. Nouveau blocage : `Cannot partially unload section`, ROM 0x435390 (slot 52), taille ROM 0x1350 alors que l’allocation du jeu vaut 0x1160. Correction des limites en cours.
+- Capture directe de la fenêtre : images Pokémon visibles, à cet instant dans une bande verticale. L’affichage complet et les commandes restent à vérifier ; ne pas déclarer le jeu jouable.
+- Adaptateur PAL 50 Hz / facteurs VI préparé, pas encore validé à cette étape.
+- Ces derniers changements sont encore locaux, au-delà du checkpoint a9bd5cae. Le reste du journal ci-dessous décrit les étapes précédentes.
+
+## État du checkpoint précédent
 
 **Le blocage à 61 listes graphiques est dépassé dans la version locale d’intégration.** Ne pas repartir de ce diagnostic sans vérifier quelle version est exécutée.
 
