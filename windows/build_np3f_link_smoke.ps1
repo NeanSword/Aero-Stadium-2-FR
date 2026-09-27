@@ -1,8 +1,11 @@
-param([switch]$Clean)
+param(
+    [switch]$Clean,
+    [switch]$SkipRun
+)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$RunnerVersion = "2026-09-26.5"
+$RunnerVersion = "2026-09-27.1"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
@@ -255,6 +258,12 @@ if ($null -eq $Exe) { throw "Link reported success but AeroStadium2.exe was not 
 Write-Host ""
 Write-Host "First AeroStadium2.exe linked successfully."
 Write-Host "Executable: $($Exe.FullName)"
+if ($SkipRun) {
+    Write-Host ""
+    Write-Host "Executable launch skipped (-SkipRun)."
+    exit 0
+}
+
 Write-Host ""
 Write-Host "Running bootstrap executable..."
 & $Exe.FullName
