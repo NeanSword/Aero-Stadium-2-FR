@@ -4,7 +4,7 @@ Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
 ## Dernière avancée — checkpoint publié et blocage du menu identifié
 
-**Sources publiées : branche `codex/native-rt64-integration` à `931705f8fd4b8e3b814a1c97e3548bdc58ee0e5d`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
+**Sources publiées : branche `codex/native-rt64-integration` à `8c537b748578ea2f600c74e669946965886262a7`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
 Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` pendant le décodage d'une image. La version locale Work/Codex a affiné le premier hook de callsite : le hook publié est désormais placé dans **`func_8000201C` avant `0x80002038`**, qui est le prédicat partagé par le décodage d'image et la sauvegarde d'options. Il appelle `aero_poll_events(rdram)` seulement si `(int32_t)ctx->r3 <= 0`, c'est-à-dire sur le chemin « pas prêt », sans modifier le résultat ni l'état du jeu. `tools/recomp/test_native_adapters.py` vérifie ce hook exact et interdit le retour de l'ancien hook `func_80003AC0 / 0x80003BB0`. **Le résultat runtime de cette version affinée n'est pas encore validé : reconstruction/test Windows à faire.**
 
@@ -69,6 +69,31 @@ Le crash persiste toutefois dans `func_81801420 + 0x11D` avec la même lecture g
 Le patch `LD` n'a donc pas touché le chemin fautif. Ne pas ajouter d'autre correctif mémoire par supposition. Un nouvel outil ROM-free `tools/recomp/diagnose_generated_function.py` a été ajouté sur la branche pour extraire le C réellement généré de `func_81801420` et lister ses opérations mémoire. Commit de branche : `931705f8fd4b8e3b814a1c97e3548bdc58ee0e5d`.
 
 Prochaine action : récupérer uniquement ce diagnostic, exécuter `.\.venv\Scripts\python.exe .\tools\recomp\diagnose_generated_function.py`, puis examiner/envoyer `build\np3f\logs\generated_func_81801420.log`. Le prochain correctif doit être fondé sur l'opération mémoire réellement présente dans ce C généré.
+
+### Diagnostic exact du crash 0x80204894 — double chargement overlay confirmé
+
+Le diagnostic du C généré de `func_81801420` montre uniquement des accès `MEM_W`; ni `LD` ni helper non aligné ne sont utilisés. Le problème n'était donc pas une macro mémoire spéciale.
+
+La cause exacte est le preload générique de N64ModernRuntime. Au démarrage, le runtime appelle `load_overlays(0x1000, entrypoint, 1 MiB)`. Comme fragment4 est à ROM `0xAE600`, il est préchargé automatiquement à :
+
+```text
+0x80000400 + (0xAE600 - 0x1000) = 0x800ADA00
+```
+
+Plus tard Stadium enregistre réellement fragment4 (slot 8) à `0x80151570`. Notre ancien `aero_unmap_fragment()` ne déchargeait le slot que si le booléen local `fragment_loaded[slot]` était déjà vrai. Ce booléen ne connaît pas le preload générique, donc librecomp gardait l'ancienne base `0x800ADA00`.
+
+`load_overlay_by_id()` voyait alors une section déjà relocalisée et utilisait sa branche d'addition :
+
+```text
+0x800ADA00 + 0x80151570 = 0x001FEF70   (wrap 32 bits)
+0x001FEF70 + 0x5924    = 0x00204894
+```
+
+Puis le chemin mémoire transformait cette adresse physique incorrecte en l'offset hôte fautif `0x80204894`, exactement celui du crash.
+
+Correctif : `aero_unmap_fragment()` décharge maintenant **tout slot compilé** via `unload_overlay_by_id(slot)`, même si `fragment_loaded[slot]` est faux. `unload_overlay_by_id()` est un no-op sûr si la section n'est pas chargée, et remet `section_addresses[section.index]` à la VRAM nominale lorsqu'elle l'est. Ainsi le remap Stadium repart toujours d'un état propre. Test ROM-free ajouté. Commit de branche : `8c537b748578ea2f600c74e669946965886262a7`.
+
+Prochaine action : récupérer `cmake/np3f_link_smoke/np3f_register_overlays.cpp` et `tools/recomp/test_native_adapters.py`, lancer les tests ROM-free, relinker uniquement le link-smoke, puis refaire le test visible 180 s. Pas besoin de régénérer N64Recomp ni de recompiler `AeroNP3FGenerated.lib` pour ce correctif.
 
 ## Reprise immédiate (détails du checkpoint)
 
