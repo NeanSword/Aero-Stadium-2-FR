@@ -2,6 +2,32 @@
 
 Dernière mise à jour : **27 septembre 2026, 21:27 Europe/Paris**.
 
+## Checkpoint stable et branche graphique
+
+L'état runtime stable validé 180 secondes est désormais figé sur une branche de retour dédiée :
+
+```text
+checkpoint/stable-runtime-180s-2026-09-27
+8c537b748578ea2f600c74e669946965886262a7
+```
+
+**Ne jamais modifier cette branche pour les expérimentations graphiques.** Elle sert de point de retour si une amélioration visuelle provoque une régression.
+
+Les améliorations graphiques sont développées séparément sur :
+
+```text
+feature/graphics-quality
+2e57f5d5b65285773f154bcd55d9a417311285c8
+```
+
+Cette branche ajoute une couche `graphics.ini` persistante avec preset **1440p par défaut** (RT64 6x, référence 240 -> 1440), presets 1080p et 4K, MSAA 4x par défaut, upscale 2D complet, filtrage anti-aliased pixel scaling, three-point filtering, format couleur interne High, triple buffering, aspect 4:3 par défaut et options fenêtre/fullscreen.
+
+Elle ajoute aussi le chargement d'un texture pack RT64 depuis `textures` et un mode optionnel `dump_textures=true` qui remplit `texture_dumps`. Ce dump est destiné à identifier les hashes du fond de l'écran titre, des glyphes/texte, du HUD et des autres textures afin de produire de vrais remplacements HD. Aucun asset propriétaire n'est distribué.
+
+Documentation : `docs/GRAPHICS_SETTINGS.md`.
+
+**État de validation :** le checkpoint stable est validé ; la branche graphique est statiquement vérifiée mais n'a pas encore été compilée/testée sur Windows. Prochaine action : déployer les fichiers du commit `2e57f5d5...`, lancer les tests ROM-free, reconstruire uniquement le link-smoke, puis effectuer un probe visible court avant de continuer vers le pack HD.
+
 ## Dernière avancée — baseline runtime stable 180 s, ancien crash overlay supprimé
 
 **Sources publiées : branche `codex/native-rt64-integration` à `8c537b748578ea2f600c74e669946965886262a7`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
