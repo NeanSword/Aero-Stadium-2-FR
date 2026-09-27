@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.6"
+$BootstrapVersion = "2026-09-27.7"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -955,7 +955,8 @@ else {
 
 Set-Content -LiteralPath $RuntimeEventsCpp -Value $RuntimeEventsText -Encoding UTF8
 
-if ($Force -and (Test-Path -LiteralPath $BuildDir)) {    Remove-Item -LiteralPath $BuildDir -Recurse -Force
+if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
+    Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
