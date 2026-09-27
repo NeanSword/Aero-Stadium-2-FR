@@ -1,8 +1,75 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **27 septembre 2026, 21:27 Europe/Paris**.
+Dernière mise à jour : **28 septembre 2026, chantier textures**.
 
-## Checkpoint stable et branche graphique
+## Reprise prioritaire — chantier textures, 28 septembre 2026
+
+La charte remise par l'utilisateur dans `Downloads/LastProgressLogs.md` est désormais conservée dans [docs/GRAPHICS_1440P_CHARTER.md](https://github.com/NeanSword/Aero-Stadium-2-FR/blob/feature/graphics-quality/docs/GRAPHICS_1440P_CHARTER.md). **Runtime gelé ; phase graphique exclusivement.** Les anciennes « prochaines actions » runtime ci-dessous sont historiques, pas des consignes actives.
+
+### Nouveau checkpoint graphique
+Branche `feature/graphics-quality`, commit **`717fd137a85f5f559bdbdd61db15c09b658a785b`**. Ajout de trois outils de catalogue/pilotes/tests et de deux documents. Aucun code runtime modifié ; aucun rebuild ; aucun dump, PNG propriétaire ou ROM publié.
+
+Les branches de retour `checkpoint/stable-runtime-180s-2026-09-27` (`8c537b748578ea2f600c74e669946965886262a7`) et `checkpoint/graphics-1440p-stable-180s-2026-09-27` (`181c38e63247b8deae48d96ddd49fbf54a63e5f6`) restent inchangées.
+
+Exécutable local conservé : SHA-256 **`AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9`**, construit le 27 septembre à 22:00. Le fichier `build/rt64-test-userdata/graphics.ini` est inchangé (SHA-256 `415ada1c8b9d104e5477ebf5833b1419d6262e3ceb5587a144da0012eeff02cb`).
+
+### Catalogue reproductible terminé
+Archive retrouvée dans :
+```text
+C:\Users\dofus\Downloads\PokemonStadium2_FR_Windows_Next\pokestadiumgs-fr\build\rt64-test-userdata\NP3F_texture_dumps.zip
+```
+SHA-256 ZIP : `ea4dd62a6b779c4ab42a9c1f9ffaf03b60345b144123235febf9e4045d54f173`.
+
+Inventaire vérifié : **11 269 entrées, 2 817 textures**, dont RGBA16 2 474 ; IA8 228 ; I4 66 ; I8 33 ; IA4 10 ; IA16 4 ; RGBA32 2. Tous les aperçus ont été décodés depuis TMEM ; les originaux et les agrandissements nearest-neighbor sont protégés contre l'écrasement par des pixels différents. Cinq tests synthétiques passent. Contre-vérification RDRAM linéaire : 2 149 correspondances, zéro échec applicable ; 668 chargements particuliers hors champ de cette contre-vérification.
+
+Artefacts **locaux** installés dans le vrai projet Downloads :
+```text
+build/np3f/graphics-workbench/catalog/index.html
+build/np3f/graphics-workbench/catalog/catalog.json
+build/np3f/graphics-workbench/catalog/catalog.csv
+build/np3f/graphics-workbench/catalog/raw/
+build/np3f/graphics-workbench/catalog/nearest/
+build/np3f/graphics-workbench/catalog/sheets/
+build/np3f/graphics-workbench/pilot-validation/
+build/np3f/graphics-workbench/stable-checkpoint.json
+```
+Outils installés : `tools/graphics/catalog_np3f_textures.py`, `prepare_np3f_texture_pilots.py`, `test_texture_decoder.py`. Commandes de reproduction et limites : [docs/TEXTURE_CATALOG_AND_PILOTS.md](https://github.com/NeanSword/Aero-Stadium-2-FR/blob/feature/graphics-quality/docs/TEXTURE_CATALOG_AND_PILOTS.md).
+
+**Correction de classification importante :** les feuilles de contact 56×26 / 56×28 montrent des morceaux de portraits Pokémon rendus, souvent avec plusieurs états. Ne pas les traiter automatiquement comme des labels texte. Les 77 glyphes 24×20 et les 245 icônes 40×40 ont été examinés sur les feuilles de contact ; leur catégorie est fondée sur ces aperçus, l'association précise aux scènes reste à vérifier. Les autres hashes restent inconnus tant que leur usage n'est pas démontré. Les 1 601 microtuiles 16×16 restent différées.
+
+### Quatre pilotes préparés — contrôle technique, pas artwork HD
+| Rôle | Hash | Source | Export de contrôle |
+|---|---|---|---|
+| Texte L | `02f9b8d67777bf16` | IA8 24×20 | 96×80 |
+| Icône Pikachu RGBA | `82dbc094ea0f8ac0` | RGBA16 40×40 | 160×160 |
+| Bande COMBAT!, intensité | `951448e72cb575fc` | I4 112×36 | 448×144 |
+| Motif Poké Ball répété | `369e34f9da3e0131` | I4 128×64 | 512×256 |
+
+Les PNG reprennent exactement les previews nearest-neighbor ×4. Les masques restent neutres, sans recoloration. Un `rt64.json` v3/hash v5 contient ces quatre entrées preload. Les manifests Phase 1–5 sont générés, **production_allowed=false**. Ne pas présenter ces agrandissements comme un gain de qualité HD.
+
+Le test visible confirme `[rt64] Texture pack HD: charge` (libellé générique du moteur). Configuration de test : preset 1440p, RT64 6×, MSAA 4×, aspect 4:3, fenêtre demandée 2560×1440. **Le chargement du pack est confirmé, mais les quatre hashes ne sont pas encore tous validés individuellement dans leur scène.** Comparaisons avant/après propres, orientation/alpha/UV/raccords, validation 1080p et mesures VRAM restent à faire. Aucun feu vert à la production massive.
+
+### Blocage préexistant retrouvé au passage en combat
+Le test de référence **sans remplacement** atteint menus/règles/aperçu des équipes, puis :
+```text
+[fragment-map] slot=0 rom=0015E8E0 ram=8025CED0 size=00006790
+[fragment-map] No compiled section for slot=239 ram=80263870 size=0000E4F0
+Failed to find function at 0x80263890
+```
+Le test avec les quatre pilotes rencontre le **même arrêt** avant combat. Pas d'erreur de chargement de texture constatée. Ne pas attribuer ce blocage au pack, ni déclarer toutes les scènes gameplay validées.
+
+Logs copiés dans `build/np3f/graphics-workbench/` :
+`baseline-visible.stdout.log`, `baseline-visible.stderr.log`, `pilot-1440p.stdout.log`, `pilot-1440p.stderr.log`.
+
+Aucune correction runtime appliquée, conformément à la charte. **Une question est en attente auprès de l'utilisateur : autoriser une exception limitée pour corriger cet arrêt, ou continuer seulement l'interface. Ne pas présumer de sa réponse.**
+
+La préparation de référence est également conservée dans le miroir local :
+`C:\Users\dofus\.codex\.chatgpt-projects\g-p-6ab58e3c969481918cad038344c3d218\graphics-workbench`.
+Les données de test sont séparées ; la configuration habituelle, les sauvegardes habituelles et la ROM source restent intactes.
+
+---
+
+## Historique — checkpoint stable et branche graphique
 
 L'état runtime stable validé 180 secondes est désormais figé sur une branche de retour dédiée :
 
