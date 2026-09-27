@@ -19,15 +19,16 @@ class FragmentExportTests(unittest.TestCase):
         self.assertEqual(added, [dict(section='fragment26', vram=0x81000020, target=0x841050E4)])
 
 class RecompHookTests(unittest.TestCase):
-    def test_menu_image_decoder_wait_yields_at_verified_callsite(self):
+    def test_task_completion_poll_yields_only_when_not_ready(self):
         config = Path("recomp/np3f.toml").read_text(encoding="utf-8")
         expected = "\n".join([
             "[[patches.hook]]",
-            'func = "func_80003AC0"',
-            "before_vram = 0x80003BB0",
-            'text = "aero_poll_events(rdram);"',
+            'func = "func_8000201C"',
+            "before_vram = 0x80002038",
+            'text = "if ((int32_t)ctx->r3 <= 0) aero_poll_events(rdram);"',
         ])
         self.assertEqual(config.count(expected), 1)
+        self.assertNotIn('func = "func_80003AC0"\nbefore_vram = 0x80003BB0', config)
 
 
 class FragmentRelocationTests(unittest.TestCase):

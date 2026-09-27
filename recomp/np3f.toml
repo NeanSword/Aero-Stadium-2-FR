@@ -29,15 +29,13 @@ func = "func_80035594"
 before_vram = 0x80035660
 text = "aero_poll_events(rdram);"
 
-# The menu image decoder polls func_8000201C in a tight wait loop. On the
-# cooperative Windows scheduler this can prevent pending SP/DP completions
-# from being dispatched, leaving the menu frozen even though the original
-# predicate is otherwise correct. Yield at the verified callsite only; do not
-# force the flag/result the game is waiting for.
+# Image decoding and option saving poll the same task-completion predicate.
+# Cooperate only on its not-ready path, preserving the result and state. This
+# covers both callers without introducing waits when the task is already done.
 [[patches.hook]]
-func = "func_80003AC0"
-before_vram = 0x80003BB0
-text = "aero_poll_events(rdram);"
+func = "func_8000201C"
+before_vram = 0x80002038
+text = "if ((int32_t)ctx->r3 <= 0) aero_poll_events(rdram);"
 
 # Follow the game's fragment map while preserving its relocation/BSS logic.
 [[patches.hook]]
