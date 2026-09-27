@@ -94,6 +94,21 @@ class GraphicsSettingsTests(unittest.TestCase):
         self.assertIn("dumpingTexturesDirectory", renderer)
 
 
+class HdTitlePackTests(unittest.TestCase):
+    def test_title_pack_layout_matches_verified_np3f_dump(self):
+        source = Path("tools/graphics/build_np3f_title_pack_from_dump.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('TITLE_ANCHOR_HASH = "dd04fe928a08d2c1"', source)
+        self.assertIn('"count": 300', source)
+        self.assertIn('"master": (320, 240)', source)
+        self.assertIn('"count": 49', source)
+        self.assertIn('"master": (376, 196)', source)
+        self.assertIn('"count": 8', source)
+        self.assertIn('"master": (416, 64)', source)
+        self.assertIn('"hashVersion": 5', source)
+
+
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
         rom = bytearray(0x100)
