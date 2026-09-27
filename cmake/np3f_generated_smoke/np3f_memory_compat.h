@@ -19,6 +19,7 @@
 
 extern void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
 extern void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
+extern void aerostadium2_np3f_ai_submit_buffer(uint8_t* rdram, uint32_t guest_addr, uint32_t byte_count);
 
 #define osPiStartDma_recomp aerostadium2_osPiStartDma_recomp
 #define osEPiStartDma_recomp aerostadium2_osEPiStartDma_recomp
