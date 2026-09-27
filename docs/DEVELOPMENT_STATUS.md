@@ -1,46 +1,71 @@
 # Development status
 
-## Base
+## Jalon atteint : premier EXE Windows lié
 
-- Repository initialized.
-- Upstream reconstruction referenced as a pinned submodule.
-- NP3F ROM metadata recorded without storing the ROM.
-- Windows-oriented scripts introduced.
-- NP3F comparison and relocation tooling added.
+La chaîne NP3F actuelle atteint désormais un exécutable Windows x64 lié avec succès.
 
-## Verified analysis already available
+État validé :
 
-- 88 executable fragments mapped in the French ROM.
-- VRAM bases observed as aligned with the US reference.
-- Cumulative ROM relocation ranges established.
-- 8,233 function mappings produced during the previous analysis.
-- 16-byte exact-anchor match rate: 73.4%.
-- 32-byte exact-anchor match rate: 61.0%.
-- 64-byte exact-anchor match rate: 46.7%.
+- layout canonique NP3F dans `yamls/fr/splat.yaml` ;
+- 88 fragments exécutables cartographiés ;
+- extraction Splat reproductible ;
+- carte de symboles courante de 10 911 fonctions ;
+- 89 sections de code avec fonctions ;
+- génération N64Recomp de 214 unités C ;
+- compilation de `AeroNP3FGenerated.lib` ;
+- linkage avec N64ModernRuntime ;
+- linkage avec RT64 ;
+- linkage avec SDL2 ;
+- création de `AeroStadium2.exe`.
 
-These figures describe the evidence collected during analysis; they do not by themselves prove a complete matching build.
+## Runtime actuellement branché
 
-## Immediate technical target
+Le prototype Windows lié comprend déjà :
 
-The next milestone is to turn the candidate NP3F mapping into a reproducible reconstruction input:
+- sélection et validation de la ROM NP3F ;
+- cache local de ROM géré par N64ModernRuntime ;
+- fenêtre Win32 de probe ;
+- initialisation SDL2 des manettes ;
+- mapping N64 de base pour jusqu'à quatre contrôleurs ;
+- support rumble lorsque disponible ;
+- renderer RT64 ;
+- routage des display lists ;
+- bridges PI/EPi DMA ;
+- détection et enregistrement des fragments exécutables chargés dynamiquement ;
+- logs CPU/RSP/display-list ;
+- watchdog de progression ;
+- résolution d'adresses via le fichier MAP lors des diagnostics de crash.
 
-1. establish the French ROM layout;
-2. validate fragment boundaries;
-3. validate section and VRAM metadata;
-4. integrate high-confidence function anchors;
-5. run the real MIPS/Splat pipeline against the user's local ROM;
-6. only then promote candidate data to verified build metadata.
+## Ce qui n'est pas encore validé
 
-## Native port target
+Le succès du linker ne constitue pas encore un port jouable.
 
-Once a stable NP3F ELF/metadata representation exists:
+À valider maintenant :
 
-- feed the native recompilation stage;
-- provide a modern runtime;
-- separate game simulation cadence from presentation cadence;
-- validate 60 Hz game logic while allowing presentation at higher display refresh rates;
-- keep online multiplayer as a first-class project target once local deterministic behavior is stable;
-- target host-authoritative Internet P2P with lobby/session discovery and relay fallback;
-- keep the networking backend isolated so EOS, another provider, or a future dedicated server can be swapped without rewriting game logic.
+1. premier démarrage réel de l'entrypoint NP3F ;
+2. comportement des threads et overlays ;
+3. tâches RSP rencontrées en pratique ;
+4. premières display lists RT64 ;
+5. chemin audio ;
+6. contrôleurs en jeu ;
+7. stabilité des accès mémoire ;
+8. transitions entre menus/modes ;
+9. sauvegardes ;
+10. déterminisme suffisant pour préparer le réseau.
 
-See [NETWORKING.md](NETWORKING.md) for the networking architecture and milestones.
+## Analyse NP3F encore conservée
+
+Les scripts de relocation et les seeds historiques sont conservés volontairement.
+
+Ils ne sont plus dans le chemin normal du build, mais restent nécessaires pour reproduire l'analyse ou diagnostiquer un futur écart de mapping.
+
+## Objectifs suivants
+
+Après validation du premier boot :
+
+- remplacer les shims de bootstrap par des comportements runtime précis lorsque nécessaire ;
+- durcir le renderer RT64 ;
+- compléter audio/input/sauvegardes ;
+- ajouter les menus et options PC ;
+- stabiliser une exécution locale déterministe ;
+- seulement ensuite activer les jalons réseau décrits dans [NETWORKING.md](NETWORKING.md).
