@@ -285,7 +285,6 @@ public:
             return;
         }
 
-        const auto& gfx = graphics::current();
         const char* aspect_name =
             gfx.aspect == graphics::AspectMode::Original ? "4:3" :
             (gfx.aspect == graphics::AspectMode::Expand ? "expand" : "16:9");
