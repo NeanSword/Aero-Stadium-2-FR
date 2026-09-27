@@ -29,6 +29,16 @@ func = "func_80035594"
 before_vram = 0x80035660
 text = "aero_poll_events(rdram);"
 
+# The menu image decoder polls func_8000201C in a tight wait loop. On the
+# cooperative Windows scheduler this can prevent pending SP/DP completions
+# from being dispatched, leaving the menu frozen even though the original
+# predicate is otherwise correct. Yield at the verified callsite only; do not
+# force the flag/result the game is waiting for.
+[[patches.hook]]
+func = "func_80003AC0"
+before_vram = 0x80003BB0
+text = "aero_poll_events(rdram);"
+
 # Follow the game's fragment map while preserving its relocation/BSS logic.
 [[patches.hook]]
 func = "func_80002440"

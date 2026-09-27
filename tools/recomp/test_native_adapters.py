@@ -1,6 +1,7 @@
 """ROM-free regression checks for native relocation metadata."""
 import struct
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from add_np3f_relocations import fragment_relocs
 from generate_np3f_symbols import inject_fragment_trampolines
@@ -16,6 +17,16 @@ class FragmentExportTests(unittest.TestCase):
                  SimpleNamespace(section='fragment79', vram=0x841050E4)]
         added = inject_fragment_trampolines(rom, {'fragment26': section}, funcs)
         self.assertEqual(added, [dict(section='fragment26', vram=0x81000020, target=0x841050E4)])
+
+class RecompHookTests(unittest.TestCase):
+    def test_menu_image_decoder_wait_yields_at_verified_callsite(self):
+        config = Path("recomp/np3f.toml").read_text(encoding="utf-8")
+        expected = """[[patches.hook]]
+func = "func_80003AC0"
+before_vram = 0x80003BB0
+text = "aero_poll_events(rdram);""""
+        self.assertEqual(config.count(expected), 1)
+
 
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
