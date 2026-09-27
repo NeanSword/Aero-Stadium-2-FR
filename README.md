@@ -1,82 +1,135 @@
 # Aero-Stadium-2-FR
 
-Reconstruction et futur portage Windows natif de **Pokémon Stadium 2 – région française NP3F**.
+Recompilation statique et portage Windows natif expérimental de **Pokémon Stadium 2 – région française NP3F**.
 
-## Ce dépôt
+## État actuel
 
-Le projet sépare volontairement trois couches :
+Le projet a franchi son premier jalon de linkage natif Windows :
 
-1. **reconstruction NP3F** : retrouver une représentation exploitable du binaire français ;
-2. **recompilation native** : produire du C/C++ natif à partir de métadonnées/ELF stables ;
-3. **runtime Windows moderne** : entrées, audio, rendu et cadence de présentation indépendants de la logique de jeu.
+- le layout NP3F canonique est stabilisé dans `yamls/fr/splat.yaml` ;
+- la passe de symboles Splat produit actuellement **10 911 fonctions** réparties sur **89 sections de code** ;
+- N64Recomp génère **214 unités C** pour la passe NP3F actuelle ;
+- ces unités compilent en `AeroNP3FGenerated.lib` avec MSVC x64 ;
+- l'exécutable Windows `AeroStadium2.exe` se lie avec succès ;
+- N64ModernRuntime fournit les services runtime de recompilation ;
+- RT64 est intégré comme backend de rendu N64 moderne ;
+- SDL2 fournit la première couche manette, jusqu'à quatre ports ;
+- les chargements de fragments exécutables par PI DMA sont reliés au système d'overlays du runtime ;
+- un runner de test runtime instrumenté conserve stdout/stderr pour les premiers boots réels.
 
-La reconstruction publique de référence est [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs), incluse ici comme sous-module et épinglée sur le commit utilisé pendant notre analyse NP3F.
+Le prochain jalon est **la validation du premier démarrage runtime**, puis la correction des divergences CPU/RSP/rendu/audio/input observées en exécution.
+
+Un exécutable qui se lie correctement ne signifie pas encore que le jeu est jouable.
+
+## Architecture active
+
+Le chemin principal est désormais :
+
+```text
+ROM française NP3F locale
+        |
+        v
+Splat / cartographie NP3F
+        |
+        v
+carte de symboles NP3F
+        |
+        v
+N64Recomp
+        |
+        v
+C généré -> AeroNP3FGenerated.lib
+        |
+        v
+AeroStadium2.exe
+        |
+        +--> N64ModernRuntime
+        +--> RT64
+        +--> SDL2
+        +--> compatibilité NP3F / overlays
+```
+
+Le dossier `native/` reste un laboratoire indépendant pour les contrats de timing et d'hôte natif. Il est toujours testé par CI, mais ce n'est plus le chemin principal de démarrage de Pokémon Stadium 2.
 
 ## ROM française requise
 
 La ROM française n'est pas distribuée dans ce dépôt.
 
-Tu dois fournir **ta propre copie légale** de la région NP3F et la placer localement ici :
+Le workflow de reconstruction attend une copie locale légale ici :
 
-    baseroms/fr/baserom.z64
+```text
+baseroms/fr/baserom.z64
+```
 
-Consulte [docs/ROM_SETUP_FR.md](docs/ROM_SETUP_FR.md) pour la procédure et les vérifications.
+Consulte [docs/ROM_SETUP_FR.md](docs/ROM_SETUP_FR.md) pour la préparation et la vérification du dump.
 
-Le dump est volontairement ignoré par Git.
+Les ROMs, dumps et sorties propriétaires générées localement restent hors du dépôt.
 
-## Mise en place
+## Workflow Windows actuel
 
-Après clonage :
+Les scripts Windows n'exigent pas Git local pour télécharger et construire les dépendances épinglées.
 
-    git submodule update --init --recursive
+Après préparation de la ROM :
 
-Puis, avec Python installé :
+```powershell
+.\windows\verify_np3f.ps1
+.\windows\bootstrap_n64recomp.ps1 -Force
+.\windows\bootstrap_n64modernruntime.ps1
+.\windows\setup_rt64_windows.ps1
+.\windows\run_np3f_recomp_prepare.ps1
+.\windows\build_np3f_generated_smoke.ps1 -Clean
+.\windows\build_np3f_link_smoke.ps1
+```
 
-    python tools/verify_np3f_rom.py baseroms/fr/baserom.z64
+Une fois `AeroStadium2.exe` créé, le test runtime instrumenté peut être lancé avec :
 
-Pour une vérification Windows :
+```powershell
+.\windows\run_np3f_runtime_probe.ps1
+```
 
-    .\windows\verify_np3f.ps1
+Les logs runtime sont écrits sous :
 
-## Outils NP3F
+```text
+build/np3f/logs/
+```
 
-Comparer deux ROMs après normalisation automatique de l'ordre des octets :
+Voir [windows/README.md](windows/README.md) pour le détail.
 
-    python tools/np3f/compare_roms.py chemin\vers\us.n64 chemin\vers\fr.v64 --min-run 4096
+## Reconstruction NP3F
 
-Relocaliser un offset US lorsque le fragment concerné est connu :
+La carte ROM NP3F canonique est conservée dans `yamls/fr/splat.yaml`.
 
-    python tools/np3f/relocate_offset.py 31 0x0277B4
-
-Les deltas actuellement connus sont documentés dans [config/np3f_fragments.json](config/np3f_fragments.json).
-
-## État actuel
-
-La carte ROM NP3F est maintenant figée dans `yamls/fr/splat.yaml` comme layout canonique vérifié.
-
-- 88/88 en-têtes de fragments correspondent aux signatures `FRAGMENT` observées directement dans NP3F ;
+- 88/88 en-têtes de fragments correspondent aux signatures `FRAGMENT` observées ;
 - 335/335 frontières de code soutenues par des ancres directes NP3E↔NP3F correspondent au layout canonique ;
-- 15 frontières supplémentaires ont été vérifiées explicitement par comparaison binaire ;
-- aucune frontière de code ne reste non résolue dans le validateur de layout.
+- 15 frontières supplémentaires ont été vérifiées explicitement ;
+- aucune frontière de code ne reste non résolue dans le validateur du layout.
 
-Le fichier `yamls/fr/splat.seed.yaml` conserve l'ancien layout de reconstruction. Les outils de relocation utilisent ce seed historique afin de pouvoir reproduire l'analyse sans appliquer deux fois les deltas.
+Le fichier `yamls/fr/splat.seed.yaml` est volontairement conservé : il sert à reproduire l'analyse historique des relocations sans appliquer deux fois les deltas.
 
-Les VRAM marquées `guessed` dans `config/np3f_fragments.json` restent, elles, à valider indépendamment.
+Les VRAM encore marquées `guessed` dans `config/np3f_fragments.json` restent à valider indépendamment.
 
 Voir [docs/NP3F_MAPPING.md](docs/NP3F_MAPPING.md).
 
-## Windows
+## Réseau
 
-Le dépôt upstream actuel utilise un Makefile qui rejette explicitement les builds natifs Windows. Aero-Stadium-2-FR conserve donc son propre workflow Windows au lieu de masquer cette différence derrière des scripts fragiles.
+Le multijoueur Internet reste un objectif du projet, mais vient après la stabilisation du runtime local et du déterminisme.
 
-Le but final est une application Windows x64 native ; la reconstruction N64 et la couche de runtime restent des étapes séparées.
+Voir [docs/NETWORKING.md](docs/NETWORKING.md).
 
 ## Règles de dépôt
 
-Les ROMs complètes, dumps et sorties binaires générées à partir de la copie personnelle de l'utilisateur ne sont pas stockés dans Git.
+Le dépôt contient uniquement le code, les outils, les métadonnées, les cartes de relocation et la documentation nécessaires au développement.
 
-Le dépôt contient le code, les outils, les métadonnées, les cartes de relocation et la documentation nécessaires au développement.
+Il ne doit pas contenir :
+
+- ROM complète ;
+- dump propriétaire ;
+- cache local de ROM ;
+- sorties générées contenant des données propriétaires ;
+- exécutables distribués avec des données du jeu.
+
+Voir [docs/REPOSITORY_POLICY.md](docs/REPOSITORY_POLICY.md).
 
 ## Licence et ayants droit
 
-Les fichiers du projet upstream restent soumis à leurs conditions propres via le sous-module. Pokémon Stadium 2 et ses éléments originaux restent la propriété de leurs ayants droit.
+Les dépendances et projets upstream restent soumis à leurs licences propres. Pokémon Stadium 2 et ses éléments originaux restent la propriété de leurs ayants droit.
