@@ -1,5 +1,5 @@
 # Aero-Stadium-2-FR — first NP3F static recompilation pass.
-# AERO_NP3F_RECOMP_CONFIG_VERSION = 2026-09-27.1
+# AERO_NP3F_RECOMP_CONFIG_VERSION = 2026-09-27.2
 # The symbol map is generated locally from Splat --disassemble-all output.
 
 [input]
@@ -53,3 +53,13 @@ instruction = [
     { func = "func_800217D4", vram = 0x800218A0, value = 0x3C1F8002 },
     { func = "func_800217D4", vram = 0x800218A4, value = 0x37FF18A8 },
 ]
+
+# Pokemon Stadium 2 writes AI_DRAM_ADDR_REG and AI_LEN_REG directly instead
+# of calling osAiSetNextBuffer. The verified NP3F function func_80019550
+# performs the two stores at 0x800195AC and 0x800195B4. Inject the host bridge
+# immediately after them so the synthesized PCM buffer reaches
+# N64ModernRuntime's audio path.
+[[patches.hook]]
+func = "func_80019550"
+before_vram = 0x800195B8
+text = "{ aerostadium2_np3f_ai_submit_buffer(rdram, (uint32_t)ctx->r10, (uint32_t)ctx->r5); }"
