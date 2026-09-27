@@ -603,14 +603,14 @@ void print_thread_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
     );
 }
 
-void print_boot_snapshot() {
+void print_boot_snapshot_at(const char* moment) {
     uint8_t* rdram = g_rdram.load();
     if (rdram == nullptr) {
         std::printf("[boot-snapshot] RDRAM indisponible.\n");
         return;
     }
 
-    std::printf("[boot-snapshot] Structures OSThread NP3F apres 3 secondes:\n");
+    std::printf("[boot-snapshot] Structures OSThread NP3F %s:\n", moment);
     print_thread_snapshot(rdram, 0x800A82A0u, "idle/id1");
     print_thread_snapshot(rdram, 0x800D05D0u, "crash/id2");
     print_thread_snapshot(rdram, 0x800CE190u, "rsp/id20");
@@ -618,6 +618,10 @@ void print_boot_snapshot() {
     print_thread_snapshot(rdram, 0x80122B40u, "thread/id4");
     print_thread_snapshot(rdram, 0x800CDA80u, "thread/id21");
     print_thread_snapshot(rdram, 0x800A8850u, "game/id6");
+}
+
+void print_boot_snapshot() {
+    print_boot_snapshot_at("apres 3 secondes");
 }
 
 
@@ -850,6 +854,14 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
         print_boot_snapshot();
         scan_known_np3f_threads();
         std::fflush(stdout);
+
+        std::this_thread::sleep_for(3s);
+        if (!g_shutdown_requested.load()) {
+            std::printf("[cpu-trace] Watchdog 6s: snapshot du softlock potentiel.\n");
+            print_boot_snapshot_at("apres 6 secondes");
+            scan_known_np3f_threads();
+            std::fflush(stdout);
+        }
     });
     boot_watchdog.detach();
 
