@@ -25,6 +25,15 @@ try {
     Invoke-Step 'native_symbols' $Python @('tools/recomp/generate_np3f_symbols.py')
     Invoke-Step 'native_relocations' $Python @('tools/recomp/add_np3f_relocations.py')
     Invoke-Step 'native_recompile' $Compiler @('recomp/np3f.toml')
-    Invoke-Step 'native_audio_recompile' (Join-Path $Build 'Release/RSPRecomp.exe') @('recomp/np3f_audio.toml')
+    Invoke-Step 'native_audio_config' $Python @('tools/recomp/generate_np3f_rsp_audio.py',
+        '--rom', 'baseroms/fr/baserom.z64', '--output-config', 'build/np3f/recomp/aspMain_np3f.toml',
+        '--output-cpp', 'generated/rsp/np3f/aspMain_np3f.cpp',
+        '--output-report', 'build/np3f/analysis/aspMain_np3f.json')
+    Invoke-Step 'native_audio_recompile' (Join-Path $Build 'Release/RSPRecomp.exe') @('build/np3f/recomp/aspMain_np3f.toml')
+    Invoke-Step 'native_task4_config' $Python @('tools/recomp/generate_np3f_rsp_task4.py',
+        '--rom', 'baseroms/fr/baserom.z64', '--output-config', 'build/np3f/recomp/task4_np3f.toml',
+        '--output-cpp', 'generated/rsp/np3f/task4_np3f.cpp',
+        '--output-report', 'build/np3f/analysis/task4_np3f.json')
+    Invoke-Step 'native_task4_recompile' (Join-Path $Build 'Release/RSPRecomp.exe') @('build/np3f/recomp/task4_np3f.toml')
 }
 finally { Pop-Location }

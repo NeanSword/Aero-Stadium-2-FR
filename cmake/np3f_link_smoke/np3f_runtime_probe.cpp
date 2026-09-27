@@ -22,9 +22,11 @@
 #include "librecomp/rsp.hpp"
 #include "ultramodern/ultramodern.hpp"
 #include "np3f_rt64_renderer.h"
+#include "np3f_sdl_input.h"
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
-RspExitReason np3f_audio_rsp(uint8_t* rdram, uint32_t ucode_addr);
+RspExitReason aspMain_np3f(uint8_t* rdram, uint32_t ucode_addr);
+RspExitReason task4_np3f(uint8_t* rdram, uint32_t ucode_addr);
 
 namespace {
 
@@ -38,6 +40,7 @@ std::atomic_uint32_t g_completed_display_lists = 0;
 std::atomic<ULONGLONG> g_last_display_list_tick = 0;
 std::array<std::atomic<DWORD>, 16> g_guest_thread_ids{};
 std::atomic_uint16_t g_buttons = 0;
+std::atomic_uint16_t g_pressed_buttons = 0;
 std::atomic_uint32_t g_stick_keys = 0;
 std::mutex g_audio_mutex;
 SDL_AudioDeviceID g_audio_device = 0;
@@ -298,6 +301,7 @@ LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
                 case 'D': stick = 8; break;
             }
             if (msg == WM_KEYDOWN) {
+                if ((lparam & (1LL << 30)) == 0) g_pressed_buttons.fetch_or(mask);
                 g_buttons.fetch_or(mask); g_stick_keys.fetch_or(stick);
             } else {
                 g_buttons.fetch_and(uint16_t(~mask)); g_stick_keys.fetch_and(~stick);
@@ -305,7 +309,7 @@ LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
             return 0;
         }
         case WM_KILLFOCUS:
-            g_buttons.store(0); g_stick_keys.store(0);
+            g_buttons.store(0); g_pressed_buttons.store(0); g_stick_keys.store(0);
             return 0;
         case WM_CLOSE:
             DestroyWindow(hwnd);
@@ -363,6 +367,7 @@ ultramodern::renderer::WindowHandle create_window(void*) {
 }
 
 void update_gfx(void*) {
+    aerostadium2::input::pump_controller_events();
     MSG msg{};
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
@@ -445,8 +450,22 @@ RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
         );
         std::printf("[audio-rsp] Executing recompiled NP3F audio microcode.\n");
     }
-    if (task->t.type == 2 && uint32_t(task->t.ucode) == 0x80000460u) return np3f_audio_rsp;
-    std::fprintf(stderr, "[audio-rsp] Unsupported task type=%u ucode=%08X\n", task->t.type, task->t.ucode);
+    if (task->t.type == 2 && uint32_t(task->t.ucode) == 0x80000460u &&
+        task->t.ucode_size == 0x1000 && uint32_t(task->t.ucode_data) == 0x80087010u &&
+        task->t.ucode_data_size == 0x2DF) return aspMain_np3f;
+    if (task->t.type == 4 && uint32_t(task->t.ucode) == 0x80085390 &&
+        task->t.ucode_size == 0x1000 && uint32_t(task->t.ucode_data) == 0x800A7E40 &&
+        task->t.ucode_data_size == 0x800) {
+        static bool logged = false;
+        if (!logged) {
+            std::fprintf(stderr, "[rsp-task4] Executing verified recompiled NP3F microcode.\n");
+            logged = true;
+        }
+        return task4_np3f;
+    }
+    std::fprintf(stderr, "[rsp] Unsupported task type=%u ucode=%08X size=%08X data=%08X data_size=%08X task_data=%08X task_size=%08X\n",
+        task->t.type, task->t.ucode, task->t.ucode_size, task->t.ucode_data,
+        task->t.ucode_data_size, task->t.data_ptr, task->t.data_size);
     return nullptr;
 }
 
@@ -488,23 +507,28 @@ void set_frequency(uint32_t frequency) {
     std::printf("[audio] Stereo device opened: %u Hz\n", frequency);
 }
 
-void poll_input() {}
+void poll_input() { aerostadium2::input::poll_controllers(); }
 
 bool get_input(int controller, uint16_t* buttons, float* x, float* y) {
+    uint16_t pad_buttons = 0;
+    float pad_x = 0, pad_y = 0;
+    const bool connected = aerostadium2::input::get_controller_input(controller, &pad_buttons, &pad_x, &pad_y);
     const auto stick = controller == 0 ? g_stick_keys.load() : 0;
     if (buttons != nullptr) {
-        *buttons = controller == 0 ? g_buttons.load() : 0;
+        // Deliver each short key press to at least one controller poll, even
+        // when both Windows key messages arrive between two game frames.
+        *buttons = pad_buttons | (controller == 0 ? (g_buttons.load() | g_pressed_buttons.exchange(0)) : 0);
     }
     if (x != nullptr) {
-        *x = float(bool(stick & 8)) - float(bool(stick & 4));
+        *x = stick & 12 ? float(bool(stick & 8)) - float(bool(stick & 4)) : pad_x;
     }
     if (y != nullptr) {
-        *y = float(bool(stick & 1)) - float(bool(stick & 2));
+        *y = stick & 3 ? float(bool(stick & 1)) - float(bool(stick & 2)) : pad_y;
     }
-    return controller == 0;
+    return controller == 0 || connected;
 }
 
-void set_rumble(int, bool) {}
+void set_rumble(int controller, bool value) { aerostadium2::input::set_controller_rumble(controller, value); }
 
 ultramodern::input::connected_device_info_t get_connected_device_info(int controller_num) {
     if (controller_num == 0) {
@@ -514,10 +538,7 @@ ultramodern::input::connected_device_info_t get_connected_device_info(int contro
         };
     }
 
-    return {
-        .connected_device = ultramodern::input::Device::None,
-        .connected_pak = ultramodern::input::Pak::None,
-    };
+    return aerostadium2::input::get_connected_controller_info(controller_num);
 }
 
 void print_thread_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
@@ -723,6 +744,7 @@ void run_np3f_runtime_probe(const std::u8string& game_id, unsigned test_seconds)
     std::setvbuf(stderr, nullptr, _IONBF, 0);
     load_probe_map_symbols();
     SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
+    aerostadium2::input::initialize_controllers();
     const recomp::rsp::callbacks_t rsp_callbacks{
         .get_rsp_microcode = get_rsp_microcode,
     };
@@ -801,6 +823,7 @@ void run_np3f_runtime_probe(const std::u8string& game_id, unsigned test_seconds)
 
     recomp::start_game(game_id, "");
     recomp::start(cfg);
+    aerostadium2::input::shutdown_controllers();
     std::printf("[runtime-probe] N64ModernRuntime termine.\n");
 }
 

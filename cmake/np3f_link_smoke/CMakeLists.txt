@@ -68,17 +68,35 @@ foreach(runtime_lib IN LISTS N64MODERNRUNTIME_LIBS)
 endforeach()
 
 add_executable(AeroStadium2
-    "${NP3F_GENERATED_DIR}/audio_rsp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_asset_entry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_compat.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_register_overlays.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_probe.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_rt64_renderer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_sdl_input.cpp"
 )
+
+set(NP3F_RSP_TASK4_CPP "${CMAKE_CURRENT_SOURCE_DIR}/../../generated/rsp/np3f/task4_np3f.cpp")
+if(NOT EXISTS "${NP3F_RSP_TASK4_CPP}")
+    message(FATAL_ERROR "NP3F task-4 RSP source missing. Run windows/prepare_np3f_native_code.ps1.")
+endif()
+target_sources(AeroStadium2 PRIVATE "${NP3F_RSP_TASK4_CPP}")
+set(NP3F_RSP_AUDIO_CPP "${CMAKE_CURRENT_SOURCE_DIR}/../../generated/rsp/np3f/aspMain_np3f.cpp")
+if(EXISTS "${NP3F_RSP_AUDIO_CPP}")
+    target_sources(AeroStadium2 PRIVATE "${NP3F_RSP_AUDIO_CPP}")
+    target_compile_definitions(AeroStadium2 PRIVATE AEROSTADIUM2_WITH_NP3F_RSP_AUDIO=1)
+    message(STATUS "NP3F audio RSP enabled: ${NP3F_RSP_AUDIO_CPP}")
+else()
+    message(FATAL_ERROR
+        "NP3F audio RSP source not found. "
+        "Run windows/build_np3f_rsp_audio.ps1 first."
+    )
+endif()
 
 target_include_directories(AeroStadium2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../np3f_generated_smoke"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${NP3F_GENERATED_DIR}"
     "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/ultramodern/include"
@@ -99,6 +117,7 @@ target_include_directories(AeroStadium2 PRIVATE
     "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-core/src/api"
     "${RT64_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
     "${RT64_SOURCE_DIR}/src/contrib/dxc/inc"
+    "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include"
 )
 
 target_link_libraries(AeroStadium2 PRIVATE

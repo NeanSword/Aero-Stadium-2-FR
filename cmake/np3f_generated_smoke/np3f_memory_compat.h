@@ -41,35 +41,6 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(
 ) {
     const uint32_t low = (uint32_t)address;
 
-    // The current bootstrap probe uses a dummy audio backend. Treat direct AI
-    // register accesses as completed/no-op transactions so legacy libultra
-    // routines that were not identified as runtime imports cannot touch the
-    // host guard pages. Reads return zero and writes are discarded.
-    //
-    // This is deliberately limited to the six standard AI registers. Once the
-    // exact NP3F osAiSetNextBuffer implementation is identified, it should be
-    // routed to N64ModernRuntime's osAiSetNextBuffer_recomp instead.
-    if (low >= 0xA4500000u && low <= 0xA4500014u && (low & 3u) == 0u) {
-        static int32_t ai_dummy = 0;
-        static uint32_t seen_ai_regs = 0;
-        const uint32_t reg_index = (low - 0xA4500000u) >> 2;
-        const uint32_t reg_bit = 1u << reg_index;
-
-        if ((seen_ai_regs & reg_bit) == 0u) {
-            fprintf(
-                stderr,
-                "[ai-mmio] caller=%s addr=0x%08X -> probe no-op/zero\n",
-                caller,
-                low
-            );
-            fflush(stderr);
-            seen_ai_regs |= reg_bit;
-        }
-
-        ai_dummy = 0;
-        return &ai_dummy;
-    }
-
     // PI_STATUS_REG: N64ModernRuntime models the PI as idle for this path.
     if (low == 0xA4600010u) {
         static int32_t pi_status_dummy = 0;

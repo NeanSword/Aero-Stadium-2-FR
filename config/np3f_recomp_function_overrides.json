@@ -2,6 +2,18 @@
   "ranges": [
     {
       "section": "text",
+      "start": "0x800774c0",
+      "end": "0x800776a0",
+      "sha256": "d6f3760984b814e04eb14582727475a59a12fbcfb9cda0ce6532a90cf9140b3a",
+      "reason": "Split controller-read object: osContGetReadData was inside the imported StartReadData symbol and became a guest PIF parser instead of the native input bridge.",
+      "functions": [
+        { "name": "osContStartReadData", "vram": "0x800774c0", "size": "0x84" },
+        { "name": "osContGetReadData", "vram": "0x80077544", "size": "0x8c" },
+        { "name": "func_800775D0", "vram": "0x800775d0", "size": "0xd0" }
+      ]
+    },
+    {
+      "section": "text",
       "start": "0x80019550",
       "end": "0x800195c4",
       "sha256": "6d6ed153acb4f715db0d0ca85426c08043664c1e6b0477be9973b161375b2be2",

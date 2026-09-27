@@ -1,7 +1,21 @@
 """ROM-free regression checks for native relocation metadata."""
 import struct
 import unittest
+from types import SimpleNamespace
 from add_np3f_relocations import fragment_relocs
+from generate_np3f_symbols import inject_fragment_trampolines
+
+class FragmentExportTests(unittest.TestCase):
+    def test_export_to_another_fragment_and_unknown_target(self):
+        rom = bytearray(0x100)
+        struct.pack_into('>I', rom, 0x14, 0x80)
+        struct.pack_into('>I', rom, 0x20, 0x09041439)  # J 0x841050E4
+        struct.pack_into('>I', rom, 0x28, 0x0904143A)  # Unknown target
+        section = SimpleNamespace(name='fragment26', rom=0, vram=0x81000000)
+        funcs = [SimpleNamespace(section='fragment26', vram=0x81000030),
+                 SimpleNamespace(section='fragment79', vram=0x841050E4)]
+        added = inject_fragment_trampolines(rom, {'fragment26': section}, funcs)
+        self.assertEqual(added, [dict(section='fragment26', vram=0x81000020, target=0x841050E4)])
 
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):

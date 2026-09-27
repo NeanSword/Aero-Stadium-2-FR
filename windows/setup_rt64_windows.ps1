@@ -181,7 +181,12 @@ if ((Test-Path -LiteralPath $PinFile -PathType Leaf) -and -not $Force) {
         "src\contrib\dxc\bin\x64\dxc.exe",
         "src\contrib\dxc\bin\x64\dxcompiler.dll",
         "src\contrib\dxc\bin\x64\dxil.dll",
-        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2.dll"
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\include\SDL.h",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2.dll",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2.lib",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2main.lib",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2.lib",
+        "src\contrib\mupen64plus-win32-deps\SDL2-2.26.3\lib\x64\SDL2main.lib"
     )
     $ExistingComplete = $true
     foreach ($RelativePath in $ExistingRequired) {

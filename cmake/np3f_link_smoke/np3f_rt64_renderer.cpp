@@ -253,9 +253,10 @@ public:
         if (++screen_updates_ % 300 == 0) {
             auto* vi = ultramodern::renderer::get_vi_regs();
             std::fprintf(stderr,
-                "[rt64-progress] screens=%u lists=%u VI_ORIGIN=%08X VI_WIDTH=%u VI_STATUS=%08X\n",
+                "[rt64-progress] screens=%u lists=%u VI_ORIGIN=%08X VI_WIDTH=%u VI_STATUS=%08X X_SCALE=%08X Y_SCALE=%08X H_START=%08X V_START=%08X\n",
                 screen_updates_, completed_lists_, vi->VI_ORIGIN_REG,
-                vi->VI_WIDTH_REG, vi->VI_STATUS_REG);
+                vi->VI_WIDTH_REG, vi->VI_STATUS_REG, vi->VI_X_SCALE_REG,
+                vi->VI_Y_SCALE_REG, vi->VI_H_START_REG, vi->VI_V_START_REG);
         }
     }
 

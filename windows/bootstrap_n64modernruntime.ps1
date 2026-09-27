@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.6"
+$BootstrapVersion = "2026-09-27.7"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -75,6 +75,103 @@ function Install-GitHubArchive {
             Remove-Item -LiteralPath $TempRoot -Recurse -Force
         }
     }
+}
+
+function Invoke-LoggedProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$StdoutLog,
+        [Parameter(Mandatory = $true)][string]$StderrLog,
+        [Parameter(Mandatory = $true)][string]$Activity,
+        [int]$HeartbeatSeconds = 10
+    )
+
+    Remove-Item -LiteralPath $StdoutLog -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $StderrLog -Force -ErrorAction SilentlyContinue
+
+    $StartedAt = Get-Date
+    $Process = Start-Process `
+        -FilePath $FilePath `
+        -ArgumentList $ArgumentList `
+        -WorkingDirectory $WorkingDirectory `
+        -NoNewWindow `
+        -PassThru `
+        -RedirectStandardOutput $StdoutLog `
+        -RedirectStandardError $StderrLog
+
+    $StdoutSeen = 0
+    $StderrSeen = 0
+    $LastVisibleActivity = Get-Date
+
+    Write-Host ("[{0}] Demarre. PID={1}" -f $Activity, $Process.Id) -ForegroundColor DarkGray
+
+    while (-not $Process.HasExited) {
+        Start-Sleep -Milliseconds 250
+
+        $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+            @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StdoutLines.Count -gt $StdoutSeen) {
+            for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+                Write-Host $StdoutLines[$Index]
+            }
+            $StdoutSeen = $StdoutLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+            @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+        } else { @() }
+
+        if ($StderrLines.Count -gt $StderrSeen) {
+            for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+                Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+            }
+            $StderrSeen = $StderrLines.Count
+            $LastVisibleActivity = Get-Date
+        }
+
+        if (((Get-Date) - $LastVisibleActivity).TotalSeconds -ge $HeartbeatSeconds) {
+            $Elapsed = [int]((Get-Date) - $StartedAt).TotalSeconds
+            Write-Host (
+                "[{0}] Toujours en cours... PID={1} duree={2}s" -f
+                $Activity,
+                $Process.Id,
+                $Elapsed
+            ) -ForegroundColor DarkGray
+            $LastVisibleActivity = Get-Date
+        }
+    }
+
+    $Process.WaitForExit()
+
+    $StdoutLines = if (Test-Path -LiteralPath $StdoutLog) {
+        @(Get-Content -LiteralPath $StdoutLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StdoutSeen; $Index -lt $StdoutLines.Count; $Index++) {
+        Write-Host $StdoutLines[$Index]
+    }
+
+    $StderrLines = if (Test-Path -LiteralPath $StderrLog) {
+        @(Get-Content -LiteralPath $StderrLog -ErrorAction SilentlyContinue)
+    } else { @() }
+    for ($Index = $StderrSeen; $Index -lt $StderrLines.Count; $Index++) {
+        Write-Host $StderrLines[$Index] -ForegroundColor Yellow
+    }
+
+    $Elapsed = [int]((Get-Date) - $StartedAt).TotalSeconds
+    Write-Host (
+        "[{0}] Termine. PID={1} duree={2}s exit={3}" -f
+        $Activity,
+        $Process.Id,
+        $Elapsed,
+        $Process.ExitCode
+    ) -ForegroundColor DarkGray
+
+    return [int]$Process.ExitCode
 }
 
 Write-Host "=== Aero-Stadium-2-FR / N64ModernRuntime bootstrap ==="
@@ -200,6 +297,668 @@ set(CMAKE_C_EXTENSIONS OFF)
     Write-Host "Applied CMake C17 compatibility patch: librecomp"
 }
 
+# N64ModernRuntime currently releases its virtual RDRAM reservation after
+# joining the game-start/event/cleanup/save threads. NP3F creates additional
+# host threads through osCreateThread; on shutdown, some of those threads can
+# still be executing recompiled code after the cleaner exits. Releasing RDRAM
+# at that point produces a deterministic use-after-free during process exit.
+#
+# Aero-Stadium-2-FR is currently a single-session Windows executable. Keep the
+# RDRAM reservation alive until process termination, where Windows reclaims it
+# automatically. Do not apply this workaround silently to an unexpected
+# upstream source revision.
+$RuntimeRecompCpp = Join-Path $SourceDir "librecomp\src\recomp.cpp"
+if (-not (Test-Path -LiteralPath $RuntimeRecompCpp -PathType Leaf)) {
+    throw "Runtime source file not found: $RuntimeRecompCpp"
+}
+
+$RuntimeRecompText = Get-Content -LiteralPath $RuntimeRecompCpp -Raw
+$ShutdownPatchMarker = "// Aero-Stadium-2-FR Windows shutdown RDRAM lifetime patch 2026-09-27.1"
+$OriginalWindowsFreeBlock = @"
+#ifdef _WIN32
+    // VirtualFree returns zero on failure.
+    free_failed = (VirtualFree(rdram, 0, MEM_RELEASE) == 0);
+#else
+"@
+$PatchedWindowsFreeBlock = @"
+#ifdef _WIN32
+    $ShutdownPatchMarker
+    // Game-created host threads can still execute briefly after quit().
+    // Keep RDRAM valid until the process exits instead of releasing it here.
+    free_failed = false;
+#else
+"@
+
+if ($RuntimeRecompText.Contains($ShutdownPatchMarker)) {
+    if (-not $RuntimeRecompText.Contains($PatchedWindowsFreeBlock)) {
+        throw "N64ModernRuntime shutdown patch marker exists, but the patched block does not match the expected content."
+    }
+    Write-Host "Windows shutdown RDRAM lifetime patch already applied."
+}
+elseif ($RuntimeRecompText.Contains($OriginalWindowsFreeBlock)) {
+    $Occurrences = ([regex]::Matches(
+        $RuntimeRecompText,
+        [regex]::Escape($OriginalWindowsFreeBlock)
+    )).Count
+    if ($Occurrences -ne 1) {
+        throw "Expected exactly one Windows RDRAM release block in $RuntimeRecompCpp, found $Occurrences."
+    }
+
+    $RuntimeRecompText = $RuntimeRecompText.Replace(
+        $OriginalWindowsFreeBlock,
+        $PatchedWindowsFreeBlock
+    )
+    Set-Content -LiteralPath $RuntimeRecompCpp -Value $RuntimeRecompText -Encoding UTF8
+    Write-Host "Applied Windows shutdown RDRAM lifetime patch: librecomp"
+}
+else {
+    throw "Could not find the expected N64ModernRuntime Windows RDRAM release block. Refusing to patch an unexpected source revision."
+}
+
+# Diagnose external OSMesgQueue delivery failures without changing runtime
+# behavior. Stadium 2 can softlock if an external completion message reaches a
+# temporarily full guest queue. Keep the existing requeue/drop policy intact,
+# but preserve the event source and log failed non-blocking deliveries.
+$MesgQueueCpp = Join-Path $SourceDir "ultramodern\src\mesgqueue.cpp"
+if (-not (Test-Path -LiteralPath $MesgQueueCpp -PathType Leaf)) {
+    throw "Runtime message queue source file not found: $MesgQueueCpp"
+}
+
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+$MesgQueueDiagMarker = "// Aero-Stadium-2-FR external message queue diagnostics 2026-09-27.1"
+
+$OriginalMesgQueueIncludes = @"
+#include <bitset>
+#include <thread>
+"@
+$PatchedMesgQueueIncludes = @"
+#include <bitset>
+#include <thread>
+#include <cstdio>
+"@
+
+$OriginalQueuedMessage = @"
+struct QueuedMessage {
+    PTR(OSMesgQueue) mq;
+    OSMesg mesg;
+    bool jam;
+    bool requeue_if_blocked;
+};
+"@
+$PatchedQueuedMessage = @"
+struct QueuedMessage {
+    PTR(OSMesgQueue) mq;
+    OSMesg mesg;
+    bool jam;
+    bool requeue_if_blocked;
+    int source;
+};
+"@
+
+$OriginalEnqueueSource = @"
+void ultramodern::enqueue_external_message_src(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, EventMessageSource src) {
+    external_messages.enqueue({mq, msg, jam, requeue_enabled[static_cast<int>(src)]});
+}
+
+void ultramodern::enqueue_external_message(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, bool requeue_if_blocked) {
+    external_messages.enqueue({mq, msg, jam, requeue_if_blocked});
+}
+"@
+$PatchedEnqueueSource = @"
+void ultramodern::enqueue_external_message_src(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, EventMessageSource src) {
+    external_messages.enqueue({mq, msg, jam, requeue_enabled[static_cast<int>(src)], static_cast<int>(src)});
+}
+
+void ultramodern::enqueue_external_message(PTR(OSMesgQueue) mq, OSMesg msg, bool jam, bool requeue_if_blocked) {
+    external_messages.enqueue({mq, msg, jam, requeue_if_blocked, -1});
+}
+"@
+
+$OriginalExternalDelivery = @"
+void dequeue_external_messages(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    std::vector<QueuedMessage> requeued_messages{};
+    while (external_messages.try_dequeue(to_send)) {
+        if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+            requeued_messages.push_back(to_send);
+        }
+    }
+    for (QueuedMessage& cur_mesg : requeued_messages) {
+        external_messages.enqueue(cur_mesg);
+    }
+}
+
+void ultramodern::wait_for_external_message(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    external_messages.wait_dequeue(to_send);
+    if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+        external_messages.enqueue(to_send);
+    }
+}
+
+void ultramodern::wait_for_external_message_timed(RDRAM_ARG u32 millis) {
+    QueuedMessage to_send;
+    if (external_messages.wait_dequeue_timed(to_send, std::chrono::milliseconds{millis})) {
+        if (!do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false) && to_send.requeue_if_blocked) {
+            external_messages.enqueue(to_send);
+        }
+    }
+}
+"@
+
+$PatchedExternalDelivery = @"
+$MesgQueueDiagMarker
+const char* aerostadium2_event_source_name(int source) {
+    switch (source) {
+        case static_cast<int>(ultramodern::EventMessageSource::Timer): return "Timer";
+        case static_cast<int>(ultramodern::EventMessageSource::Sp): return "SP";
+        case static_cast<int>(ultramodern::EventMessageSource::Si): return "SI";
+        case static_cast<int>(ultramodern::EventMessageSource::Ai): return "AI";
+        case static_cast<int>(ultramodern::EventMessageSource::Vi): return "VI";
+        case static_cast<int>(ultramodern::EventMessageSource::Pi): return "PI";
+        case static_cast<int>(ultramodern::EventMessageSource::Dp): return "DP";
+        default: return "generic";
+    }
+}
+
+void aerostadium2_log_external_send_failure(RDRAM_ARG const QueuedMessage& message) {
+    static uint32_t logged_failures = 0;
+    if (logged_failures >= 256) {
+        return;
+    }
+
+    OSMesgQueue* mq = TO_PTR(OSMesgQueue, message.mq);
+    std::fprintf(
+        stderr,
+        "[mq-ext-fail] source=%s mq=0x%08X msg=0x%08X jam=%d requeue=%d valid=%d count=%d\n",
+        aerostadium2_event_source_name(message.source),
+        static_cast<uint32_t>(message.mq),
+        static_cast<uint32_t>(message.mesg),
+        message.jam ? 1 : 0,
+        message.requeue_if_blocked ? 1 : 0,
+        mq->validCount,
+        mq->msgCount
+    );
+    std::fflush(stderr);
+    ++logged_failures;
+}
+
+void dequeue_external_messages(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    std::vector<QueuedMessage> requeued_messages{};
+    while (external_messages.try_dequeue(to_send)) {
+        const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+        if (!sent) {
+            aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+            if (to_send.requeue_if_blocked) {
+                requeued_messages.push_back(to_send);
+            }
+        }
+    }
+    for (QueuedMessage& cur_mesg : requeued_messages) {
+        external_messages.enqueue(cur_mesg);
+    }
+}
+
+void ultramodern::wait_for_external_message(RDRAM_ARG1) {
+    QueuedMessage to_send;
+    external_messages.wait_dequeue(to_send);
+    const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+    if (!sent) {
+        aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+        if (to_send.requeue_if_blocked) {
+            external_messages.enqueue(to_send);
+        }
+    }
+}
+
+void ultramodern::wait_for_external_message_timed(RDRAM_ARG u32 millis) {
+    QueuedMessage to_send;
+    if (external_messages.wait_dequeue_timed(to_send, std::chrono::milliseconds{millis})) {
+        const bool sent = do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false);
+        if (!sent) {
+            aerostadium2_log_external_send_failure(PASS_RDRAM to_send);
+            if (to_send.requeue_if_blocked) {
+                external_messages.enqueue(to_send);
+            }
+        }
+    }
+}
+"@
+
+if ($MesgQueueText.Contains($MesgQueueDiagMarker)) {
+    foreach ($ExpectedBlock in @(
+        $PatchedMesgQueueIncludes,
+        $PatchedQueuedMessage,
+        $PatchedEnqueueSource,
+        $PatchedExternalDelivery
+    )) {
+        if (-not $MesgQueueText.Contains($ExpectedBlock)) {
+            throw "N64ModernRuntime message queue diagnostic marker exists, but a patched block does not match the expected content."
+        }
+    }
+    Write-Host "External message queue diagnostics already applied."
+}
+else {
+    foreach ($RequiredBlock in @(
+        $OriginalMesgQueueIncludes,
+        $OriginalQueuedMessage,
+        $OriginalEnqueueSource,
+        $OriginalExternalDelivery
+    )) {
+        if (-not $MesgQueueText.Contains($RequiredBlock)) {
+            throw "Could not find an expected N64ModernRuntime message queue block. Refusing to patch an unexpected source revision."
+        }
+    }
+
+    $MesgQueueText = $MesgQueueText.Replace($OriginalMesgQueueIncludes, $PatchedMesgQueueIncludes)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalQueuedMessage, $PatchedQueuedMessage)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalEnqueueSource, $PatchedEnqueueSource)
+    $MesgQueueText = $MesgQueueText.Replace($OriginalExternalDelivery, $PatchedExternalDelivery)
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied external OSMesgQueue delivery diagnostics: ultramodern"
+}
+
+# Trace which guest queues Stadium 2 blocks on and which event registrations
+# target those queues. This is observability-only: scheduling and queue
+# semantics remain unchanged.
+$QueueFlowDiagMarker = "// Aero-Stadium-2-FR queue block/wake diagnostics 2026-09-27.1"
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+
+$OriginalWakeRecvBlock = @"
+    // If any threads were blocked on receiving from this message queue, pop the first one and schedule it.
+    PTR(PTR(OSThread)) blocked_queue = GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv);
+    if (!ultramodern::thread_queue_empty(PASS_RDRAM blocked_queue)) {
+        ultramodern::schedule_running_thread(PASS_RDRAM ultramodern::thread_queue_pop(PASS_RDRAM blocked_queue));
+    }
+"@
+$PatchedWakeRecvBlock = @"
+    // If any threads were blocked on receiving from this message queue, pop the first one and schedule it.
+    PTR(PTR(OSThread)) blocked_queue = GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv);
+    if (!ultramodern::thread_queue_empty(PASS_RDRAM blocked_queue)) {
+        PTR(OSThread) woken_thread = ultramodern::thread_queue_pop(PASS_RDRAM blocked_queue);
+        static uint32_t aero_wake_recv_logs = 0;
+        if (aero_wake_recv_logs < 128) {
+            OSMesgQueue* wake_mq = TO_PTR(OSMesgQueue, mq_);
+            OSThread* wake_thread = TO_PTR(OSThread, woken_thread);
+            std::fprintf(
+                stderr,
+                "[mq-wake-recv] mq=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                static_cast<uint32_t>(mq_),
+                static_cast<uint32_t>(woken_thread),
+                wake_thread->id,
+                wake_thread->priority,
+                wake_mq->validCount,
+                wake_mq->msgCount
+            );
+            std::fflush(stderr);
+            ++aero_wake_recv_logs;
+        }
+        ultramodern::schedule_running_thread(PASS_RDRAM woken_thread);
+    }
+"@
+
+$OriginalBlockRecvLoop = @"
+        while (MQ_IS_EMPTY(mq)) {
+            debug_printf("[Message Queue] Thread %d is blocked on receive\n", TO_PTR(OSThread, ultramodern::this_thread())->id);
+            ultramodern::thread_queue_insert(PASS_RDRAM GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv), ultramodern::this_thread());
+            ultramodern::run_next_thread_and_wait(PASS_RDRAM1);
+        }
+"@
+$PatchedBlockRecvLoop = @"
+        while (MQ_IS_EMPTY(mq)) {
+            static uint32_t aero_block_recv_logs = 0;
+            if (aero_block_recv_logs < 128) {
+                const PTR(OSThread) blocked_thread_addr = ultramodern::this_thread();
+                OSThread* blocked_thread = TO_PTR(OSThread, blocked_thread_addr);
+                std::fprintf(
+                    stderr,
+                    "[mq-block-recv] mq=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                    static_cast<uint32_t>(mq_),
+                    static_cast<uint32_t>(blocked_thread_addr),
+                    blocked_thread->id,
+                    blocked_thread->priority,
+                    mq->validCount,
+                    mq->msgCount
+                );
+                std::fflush(stderr);
+                ++aero_block_recv_logs;
+            }
+            debug_printf("[Message Queue] Thread %d is blocked on receive\n", TO_PTR(OSThread, ultramodern::this_thread())->id);
+            ultramodern::thread_queue_insert(PASS_RDRAM GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv), ultramodern::this_thread());
+            ultramodern::run_next_thread_and_wait(PASS_RDRAM1);
+        }
+"@
+
+if ($MesgQueueText.Contains($QueueFlowDiagMarker)) {
+    if (-not $MesgQueueText.Contains($PatchedWakeRecvBlock) -or
+        -not $MesgQueueText.Contains($PatchedBlockRecvLoop)) {
+        throw "N64ModernRuntime queue flow diagnostic marker exists, but patched blocks do not match expected content."
+    }
+    Write-Host "Queue block/wake diagnostics already applied."
+}
+else {
+    if (-not $MesgQueueText.Contains($OriginalWakeRecvBlock)) {
+        throw "Could not find expected blocked-receiver wake block in N64ModernRuntime."
+    }
+    if (-not $MesgQueueText.Contains($OriginalBlockRecvLoop)) {
+        throw "Could not find expected blocking receive loop in N64ModernRuntime."
+    }
+
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalWakeRecvBlock,
+        $QueueFlowDiagMarker + [Environment]::NewLine + $PatchedWakeRecvBlock
+    )
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalBlockRecvLoop,
+        $PatchedBlockRecvLoop
+    )
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied queue block/wake diagnostics: ultramodern"
+}
+
+$RuntimeEventsCpp = Join-Path $SourceDir "ultramodern\src\events.cpp"
+if (-not (Test-Path -LiteralPath $RuntimeEventsCpp -PathType Leaf)) {
+    throw "Runtime events source file not found: $RuntimeEventsCpp"
+}
+$RuntimeEventsText = Get-Content -LiteralPath $RuntimeEventsCpp -Raw
+$EventRegDiagMarker = "// Aero-Stadium-2-FR event registration diagnostics 2026-09-27.1"
+$EventsCstdioMarker = "#include <cstdio>"
+if (-not $RuntimeEventsText.Contains($EventsCstdioMarker)) {
+    $EventsIncludeNeedle = "#include <cstring>"
+    if (-not $RuntimeEventsText.Contains($EventsIncludeNeedle)) {
+        throw "Could not find expected events.cpp include block for <cstdio> insertion."
+    }
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $EventsIncludeNeedle,
+        $EventsIncludeNeedle + [Environment]::NewLine + $EventsCstdioMarker
+    )
+}
+
+$OriginalEventRegistration = @"
+extern "C" void osSetEventMesg(RDRAM_ARG OSEvent event_id, PTR(OSMesgQueue) mq_, OSMesg msg) {
+    std::lock_guard lock{ events_context.message_mutex };
+
+    switch (event_id) {
+"@
+$PatchedEventRegistration = @"
+extern "C" void osSetEventMesg(RDRAM_ARG OSEvent event_id, PTR(OSMesgQueue) mq_, OSMesg msg) {
+    std::lock_guard lock{ events_context.message_mutex };
+
+    $EventRegDiagMarker
+    static uint32_t aero_event_reg_logs = 0;
+    if (aero_event_reg_logs < 64) {
+        std::fprintf(
+            stderr,
+            "[mq-event-reg] event=%u mq=0x%08X msg=0x%08X\n",
+            static_cast<unsigned>(event_id),
+            static_cast<uint32_t>(mq_),
+            static_cast<uint32_t>(msg)
+        );
+        std::fflush(stderr);
+        ++aero_event_reg_logs;
+    }
+
+    switch (event_id) {
+"@
+
+if ($RuntimeEventsText.Contains($EventRegDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedEventRegistration)) {
+        throw "N64ModernRuntime event registration diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Event registration diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalEventRegistration)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalEventRegistration,
+        $PatchedEventRegistration
+    )
+    Set-Content -LiteralPath $RuntimeEventsCpp -Value $RuntimeEventsText -Encoding UTF8
+    Write-Host "Applied event registration diagnostics: ultramodern"
+}
+else {
+    throw "Could not find expected osSetEventMesg block in N64ModernRuntime."
+}
+
+# Additional Stadium 2 boot diagnostics: trace direct guest NOBLOCK send
+# failures, SP/DP completion production, gfx task submission and VI queue
+# registration. Observability only; no queue or scheduler behavior changes.
+$DirectSendDiagMarker = "// Aero-Stadium-2-FR direct NOBLOCK send diagnostics 2026-09-27.1"
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+$OriginalDirectNoblockFull = @"
+    if (!block) {
+        // If non-blocking, fail if the queue is full.
+        if (MQ_IS_FULL(mq)) {
+            return false;
+        }
+    }
+"@
+$PatchedDirectNoblockFull = @"
+    $DirectSendDiagMarker
+    if (!block) {
+        // If non-blocking, fail if the queue is full.
+        if (MQ_IS_FULL(mq)) {
+            static uint32_t aero_noblock_full_logs = 0;
+            if (aero_noblock_full_logs < 128) {
+                const bool from_game_thread = ultramodern::is_game_thread();
+                uint32_t thread_addr = 0;
+                int thread_id = -1;
+                int thread_pri = -1;
+                if (from_game_thread) {
+                    const PTR(OSThread) current_thread_addr = ultramodern::this_thread();
+                    OSThread* current_thread = TO_PTR(OSThread, current_thread_addr);
+                    thread_addr = static_cast<uint32_t>(current_thread_addr);
+                    thread_id = current_thread->id;
+                    thread_pri = current_thread->priority;
+                }
+                std::fprintf(
+                    stderr,
+                    "[mq-noblock-full] origin=%s mq=0x%08X msg=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                    from_game_thread ? "game" : "external",
+                    static_cast<uint32_t>(mq_),
+                    static_cast<uint32_t>(msg),
+                    thread_addr,
+                    thread_id,
+                    thread_pri,
+                    mq->validCount,
+                    mq->msgCount
+                );
+                std::fflush(stderr);
+                ++aero_noblock_full_logs;
+            }
+            return false;
+        }
+    }
+"@
+
+if ($MesgQueueText.Contains($DirectSendDiagMarker)) {
+    if (-not $MesgQueueText.Contains($PatchedDirectNoblockFull)) {
+        throw "Direct NOBLOCK diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Direct NOBLOCK send diagnostics already applied."
+}
+elseif ($MesgQueueText.Contains($OriginalDirectNoblockFull)) {
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalDirectNoblockFull,
+        $PatchedDirectNoblockFull
+    )
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied direct NOBLOCK send diagnostics: ultramodern"
+}
+else {
+    throw "Could not find expected do_send NOBLOCK block in N64ModernRuntime."
+}
+
+$RuntimeEventsText = Get-Content -LiteralPath $RuntimeEventsCpp -Raw
+$RcpCompletionDiagMarker = "// Aero-Stadium-2-FR SP/DP completion diagnostics 2026-09-27.1"
+$OriginalCompletionFunctions = @"
+void sp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    ultramodern::enqueue_external_message_src(events_context.sp.mq, events_context.sp.msg, false, ultramodern::EventMessageSource::Sp);
+}
+
+void dp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    ultramodern::enqueue_external_message_src(events_context.dp.mq, events_context.dp.msg, false, ultramodern::EventMessageSource::Dp);
+}
+"@
+$PatchedCompletionFunctions = @"
+$RcpCompletionDiagMarker
+void sp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    static std::atomic<uint32_t> aero_sp_completion_count{0};
+    const uint32_t completion_index = aero_sp_completion_count.fetch_add(1) + 1;
+    if (completion_index <= 256) {
+        std::fprintf(
+            stderr,
+            "[rcp-produce] SP #%u mq=0x%08X msg=0x%08X\n",
+            completion_index,
+            static_cast<uint32_t>(events_context.sp.mq),
+            static_cast<uint32_t>(events_context.sp.msg)
+        );
+        std::fflush(stderr);
+    }
+    ultramodern::enqueue_external_message_src(events_context.sp.mq, events_context.sp.msg, false, ultramodern::EventMessageSource::Sp);
+}
+
+void dp_complete() {
+    uint8_t* rdram = events_context.rdram;
+    std::lock_guard lock{ events_context.message_mutex };
+    static std::atomic<uint32_t> aero_dp_completion_count{0};
+    const uint32_t completion_index = aero_dp_completion_count.fetch_add(1) + 1;
+    if (completion_index <= 256) {
+        std::fprintf(
+            stderr,
+            "[rcp-produce] DP #%u mq=0x%08X msg=0x%08X\n",
+            completion_index,
+            static_cast<uint32_t>(events_context.dp.mq),
+            static_cast<uint32_t>(events_context.dp.msg)
+        );
+        std::fflush(stderr);
+    }
+    ultramodern::enqueue_external_message_src(events_context.dp.mq, events_context.dp.msg, false, ultramodern::EventMessageSource::Dp);
+}
+"@
+
+if ($RuntimeEventsText.Contains($RcpCompletionDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedCompletionFunctions)) {
+        throw "SP/DP completion diagnostic marker exists, but patched functions do not match expected content."
+    }
+    Write-Host "SP/DP completion diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalCompletionFunctions)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalCompletionFunctions,
+        $PatchedCompletionFunctions
+    )
+}
+else {
+    throw "Could not find expected sp_complete/dp_complete functions in N64ModernRuntime."
+}
+
+$GfxSubmitDiagMarker = "// Aero-Stadium-2-FR gfx task submission diagnostics 2026-09-27.1"
+$OriginalGfxSubmitBlock = @"
+    // Send gfx tasks to the graphics action queue
+    if (task->t.type == M_GFXTASK) {
+        events_context.action_queue.enqueue(SpTaskAction{ *task });
+    }
+"@
+$PatchedGfxSubmitBlock = @"
+    // Send gfx tasks to the graphics action queue
+    $GfxSubmitDiagMarker
+    if (task->t.type == M_GFXTASK) {
+        static std::atomic<uint32_t> aero_gfx_submit_count{0};
+        const uint32_t submit_index = aero_gfx_submit_count.fetch_add(1) + 1;
+        if (submit_index <= 128) {
+            std::fprintf(
+                stderr,
+                "[gfx-submit] #%u data=0x%08X size=0x%08X ucode=0x%08X ucode_data=0x%08X\n",
+                submit_index,
+                static_cast<uint32_t>(task->t.data_ptr),
+                static_cast<uint32_t>(task->t.data_size),
+                static_cast<uint32_t>(task->t.ucode),
+                static_cast<uint32_t>(task->t.ucode_data)
+            );
+            std::fflush(stderr);
+        }
+        events_context.action_queue.enqueue(SpTaskAction{ *task });
+    }
+"@
+
+if ($RuntimeEventsText.Contains($GfxSubmitDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedGfxSubmitBlock)) {
+        throw "Gfx submission diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Gfx task submission diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalGfxSubmitBlock)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalGfxSubmitBlock,
+        $PatchedGfxSubmitBlock
+    )
+}
+else {
+    throw "Could not find expected gfx task submission block in N64ModernRuntime."
+}
+
+$ViRegDiagMarker = "// Aero-Stadium-2-FR VI queue registration diagnostics 2026-09-27.1"
+$OriginalViSetEvent = @"
+extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 retrace_count) {
+    std::lock_guard lock{ events_context.message_mutex };
+    ViState* next_state = events_context.vi.get_next_state();
+    next_state->mq = mq_;
+    next_state->msg = msg;
+    next_state->retrace_count = retrace_count;
+}
+"@
+$PatchedViSetEvent = @"
+extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 retrace_count) {
+    std::lock_guard lock{ events_context.message_mutex };
+    $ViRegDiagMarker
+    static uint32_t aero_vi_reg_logs = 0;
+    if (aero_vi_reg_logs < 32) {
+        std::fprintf(
+            stderr,
+            "[mq-vi-reg] mq=0x%08X msg=0x%08X retrace=%u\n",
+            static_cast<uint32_t>(mq_),
+            static_cast<uint32_t>(msg),
+            retrace_count
+        );
+        std::fflush(stderr);
+        ++aero_vi_reg_logs;
+    }
+    ViState* next_state = events_context.vi.get_next_state();
+    next_state->mq = mq_;
+    next_state->msg = msg;
+    next_state->retrace_count = retrace_count;
+}
+"@
+
+if ($RuntimeEventsText.Contains($ViRegDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedViSetEvent)) {
+        throw "VI registration diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "VI queue registration diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalViSetEvent)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalViSetEvent,
+        $PatchedViSetEvent
+    )
+}
+else {
+    throw "Could not find expected osViSetEvent block in N64ModernRuntime."
+}
+
+Set-Content -LiteralPath $RuntimeEventsCpp -Value $RuntimeEventsText -Encoding UTF8
+
+$VideoPatchPython = Join-Path $RepoRoot '.venv/Scripts/python.exe'
+& $VideoPatchPython (Join-Path $RepoRoot 'tools/recomp/patch_np3f_video.py') --runtime $SourceDir
+if ($LASTEXITCODE -ne 0) { throw 'NP3F PAL video adapter failed.' }
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
@@ -227,17 +986,13 @@ $CMakeExe = (Get-Command cmake -ErrorAction Stop).Source
 # a single CMake argument on Windows PowerShell 5.1.
 $ConfigureArgumentLine = '-S "{0}" -B "{1}" -G "Visual Studio 17 2022" -A x64' -f $SourceDir, $BuildDir
 
-$ConfigureProcess = Start-Process `
+$ConfigureExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $ConfigureArgumentLine `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $ConfigureStdoutLog `
-    -RedirectStandardError $ConfigureStderrLog
-
-$ConfigureExit = $ConfigureProcess.ExitCode
+    -StdoutLog $ConfigureStdoutLog `
+    -StderrLog $ConfigureStderrLog `
+    -Activity "CMake configure"
 
 $ConfigureStdout = @()
 $ConfigureStderr = @()
@@ -278,17 +1033,13 @@ Write-Host "[5/5] Building ultramodern + librecomp..."
 
 $BuildArgumentLine = '--build "{0}" --config Release --target ultramodern librecomp --parallel' -f $BuildDir
 
-$BuildProcess = Start-Process `
+$BuildExit = Invoke-LoggedProcess `
     -FilePath $CMakeExe `
     -ArgumentList $BuildArgumentLine `
     -WorkingDirectory $RepoRoot `
-    -NoNewWindow `
-    -Wait `
-    -PassThru `
-    -RedirectStandardOutput $BuildStdoutLog `
-    -RedirectStandardError $BuildStderrLog
-
-$BuildExit = $BuildProcess.ExitCode
+    -StdoutLog $BuildStdoutLog `
+    -StderrLog $BuildStderrLog `
+    -Activity "MSBuild ultramodern+librecomp"
 
 $BuildStdout = @()
 $BuildStderr = @()
@@ -340,6 +1091,10 @@ $Versions = @{
     xxhash = "680bf463fa1ca0461b9a7c2dab7556e1f54cf4cf"
     miniz = "8573fd7cd6f49b262a0ccc447f3c6acfc415e556"
     o1heap = "a124b850791db2a33f7354d2b0aa7da821cef6f5"
+    aero_windows_shutdown_rdram_patch = "2026-09-27.1"
+    aero_message_queue_diagnostics = "2026-09-27.1"
+    aero_queue_flow_diagnostics = "2026-09-27.1"
+    aero_rcp_completion_diagnostics = "2026-09-27.1"
 }
 
 $Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8

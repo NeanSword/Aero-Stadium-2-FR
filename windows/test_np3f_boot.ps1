@@ -1,4 +1,4 @@
-param([ValidateRange(1, 300)][int]$Seconds = 15)
+param([ValidateRange(1, 300)][int]$Seconds = 15, [switch]$Visible)
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -11,8 +11,9 @@ foreach ($Required in @($Exe, $Rom)) {
 }
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $Arguments = '--rom "{0}" --data-dir "{1}" --seconds {2}' -f $Rom, $Data, $Seconds
+$WindowStyle = if ($Visible) { 'Normal' } else { 'Hidden' }
 $Probe = Start-Process -FilePath $Exe -ArgumentList $Arguments -WorkingDirectory (Split-Path $Exe) `
-    -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $LogDir 'stdout.log') `
+    -WindowStyle $WindowStyle -PassThru -RedirectStandardOutput (Join-Path $LogDir 'stdout.log') `
     -RedirectStandardError (Join-Path $LogDir 'stderr.log')
 if (-not $Probe.WaitForExit(($Seconds + 15) * 1000)) {
     Stop-Process -Id $Probe.Id -Force

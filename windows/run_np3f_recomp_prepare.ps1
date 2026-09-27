@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-25.4"
+$RunnerVersion = "2026-09-27.6"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -18,6 +18,16 @@ $AsmDir = Join-Path $RepoRoot "build\np3f\asm"
 $SrcDir = Join-Path $RepoRoot "build\np3f\src"
 $CleanExtractStamp = Join-Path $RepoRoot "build\np3f\recomp\.np3f-symbol-clean-extract-v1"
 $GeneratorScript = Join-Path $RepoRoot "tools\recomp\generate_np3f_symbols.py"
+$StandaloneN64RecompRoot = Join-Path $RepoRoot ".local\n64recomp"
+$StandaloneN64RecompSource = Join-Path $StandaloneN64RecompRoot "src"
+$StandaloneVersions = Join-Path $StandaloneN64RecompRoot "versions.json"
+$ExpectedN64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
+$ExpectedConfigVersion = "2026-09-27.2"
+$ForbiddenGeneratedHooks = @(
+    "aero_lookup_asset",
+    "aero_cartridge_read_u32",
+    "aero_poll_events"
+)
 
 Write-Host "=== Aero-Stadium-2-FR / first NP3F N64Recomp pass ==="
 Write-Host "Runner version: $RunnerVersion"
@@ -25,6 +35,109 @@ Write-Host ""
 
 if (-not (Test-Path -LiteralPath $RecompExe -PathType Leaf)) {
     throw "N64Recomp.exe not found. Run .\windows\bootstrap_n64recomp.ps1 first."
+}
+
+if (-not (Test-Path -LiteralPath $Config -PathType Leaf)) {
+    throw "NP3F N64Recomp config not found: $Config"
+}
+
+$ConfigText = Get-Content -LiteralPath $Config -Raw
+$ConfigVersionMarker = "AERO_NP3F_RECOMP_CONFIG_VERSION = $ExpectedConfigVersion"
+if (-not $ConfigText.Contains($ConfigVersionMarker)) {
+    throw @"
+NP3F N64Recomp config is stale or locally modified.
+
+Expected marker:
+  $ConfigVersionMarker
+
+Refresh recomp\np3f.toml from the project repository, then rerun this script.
+"@
+}
+
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    if ($ConfigText.Contains($ForbiddenHook)) {
+        throw @"
+NP3F N64Recomp config contains an obsolete Aero-specific hook:
+  $ForbiddenHook
+
+Refresh recomp\np3f.toml from the project repository, then rerun this script.
+"@
+    }
+}
+
+if (-not (Test-Path -LiteralPath $StandaloneVersions -PathType Leaf)) {
+    throw @"
+Standalone N64Recomp version metadata is missing.
+
+Run:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$VersionInfo = Get-Content -LiteralPath $StandaloneVersions -Raw | ConvertFrom-Json
+if (-not $VersionInfo.n64recomp_exe_sha256) {
+    throw @"
+Standalone N64Recomp provenance metadata is too old.
+
+Rebuild the executable once with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$ActualExeHash = (Get-FileHash -LiteralPath $RecompExe -Algorithm SHA256).Hash
+if ($ActualExeHash -ne $VersionInfo.n64recomp_exe_sha256) {
+    throw @"
+Standalone N64Recomp executable does not match its bootstrap provenance.
+Recorded SHA-256: $($VersionInfo.n64recomp_exe_sha256)
+Actual SHA-256  : $ActualExeHash
+
+Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+$ExeAscii = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($RecompExe))
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    if ($ExeAscii.Contains($ForbiddenHook)) {
+        throw @"
+Standalone N64Recomp executable contains an obsolete Aero-specific hook:
+  $ForbiddenHook
+
+Rebuild the pinned upstream executable with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+    }
+}
+
+if ($VersionInfo.n64recomp -ne $ExpectedN64RecompCommit) {
+    throw @"
+Standalone N64Recomp is not the pinned revision.
+Expected: $ExpectedN64RecompCommit
+Found   : $($VersionInfo.n64recomp)
+
+Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+}
+
+if (Test-Path -LiteralPath $StandaloneN64RecompSource -PathType Container) {
+    foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+        $SourceMatch = Get-ChildItem -LiteralPath $StandaloneN64RecompSource -Recurse -File -ErrorAction SilentlyContinue |
+            Select-String -SimpleMatch $ForbiddenHook -List -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+        if ($null -ne $SourceMatch) {
+            throw @"
+Standalone N64Recomp source contains an Aero-specific host hook:
+  $ForbiddenHook
+  $($SourceMatch.Path):$($SourceMatch.LineNumber)
+
+The generator source is contaminated by an older local experiment.
+Rebuild the pinned upstream source with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+"@
+        }
+    }
 }
 
 if (-not $SkipExtract) {
@@ -70,6 +183,28 @@ NP3E code symbols. Run this script once without -SkipExtract.
 "@
     }
 
+    # Older local experiments could leave Aero-specific helper labels inside
+    # build/np3f/asm even though the stamp predates the current symbol-clean
+    # extraction rules. Those labels are not part of NP3F and must never leak
+    # into the generated static library.
+    $StaleAeroSymbol = Get-ChildItem -LiteralPath $AsmDir -Recurse -File -Filter "*.s" -ErrorAction SilentlyContinue |
+        Select-String -Pattern '\baero_[A-Za-z0-9_]+\b' -List |
+        Select-Object -First 1
+
+    if ($null -ne $StaleAeroSymbol) {
+        throw @"
+-SkipExtract refused: stale Aero-specific symbols were found in the cached
+Splat assembly.
+
+First match:
+$($StaleAeroSymbol.Path):$($StaleAeroSymbol.LineNumber)
+$($StaleAeroSymbol.Line.Trim())
+
+Run this script once WITHOUT -SkipExtract. It will delete build\np3f\asm and
+re-extract a clean NP3F disassembly before regenerating N64Recomp output.
+"@
+    }
+
     Write-Host "[1/3] Reusing symbol-clean NP3F Splat disassembly (-SkipExtract)."
 }
 
@@ -105,8 +240,33 @@ Remove-Item -LiteralPath $StdoutLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $StderrLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $Log -Force -ErrorAction SilentlyContinue
 
-$Process = Start-Process -FilePath $RecompExe -ArgumentList @($Config) -WorkingDirectory $RepoRoot -NoNewWindow -Wait -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+$Process = Start-Process -FilePath $RecompExe -ArgumentList @($Config) -WorkingDirectory $RepoRoot -NoNewWindow -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+$RecompStartedAt = Get-Date
+$LastRecompHeartbeat = Get-Date
+Write-Host ("[N64Recomp] Demarre. PID={0}" -f $Process.Id) -ForegroundColor DarkGray
+
+while (-not $Process.HasExited) {
+    Start-Sleep -Milliseconds 500
+    if (((Get-Date) - $LastRecompHeartbeat).TotalSeconds -ge 10) {
+        $Elapsed = [int]((Get-Date) - $RecompStartedAt).TotalSeconds
+        Write-Host (
+            "[N64Recomp] Toujours en cours... PID={0} duree={1}s" -f
+            $Process.Id,
+            $Elapsed
+        ) -ForegroundColor DarkGray
+        $LastRecompHeartbeat = Get-Date
+    }
+}
+
+$Process.WaitForExit()
 $RecompExit = $Process.ExitCode
+$RecompElapsed = [int]((Get-Date) - $RecompStartedAt).TotalSeconds
+Write-Host (
+    "[N64Recomp] Termine. PID={0} duree={1}s exit={2}" -f
+    $Process.Id,
+    $RecompElapsed,
+    $RecompExit
+) -ForegroundColor DarkGray
 
 $StdoutLines = @()
 $StderrLines = @()
@@ -143,6 +303,25 @@ Write-Host "N64Recomp log     : $Log"
 if ($RecompExit -ne 0) {
     Write-Host "N64Recomp stopped with exit code $RecompExit."
     exit $RecompExit
+}
+
+foreach ($ForbiddenHook in $ForbiddenGeneratedHooks) {
+    $GeneratedMatch = Get-ChildItem -LiteralPath $GeneratedDir -Recurse -File -ErrorAction SilentlyContinue |
+        Select-String -SimpleMatch $ForbiddenHook -List -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -ne $GeneratedMatch) {
+        throw @"
+N64Recomp generated an obsolete Aero-specific host hook:
+  $ForbiddenHook
+  $($GeneratedMatch.Path):$($GeneratedMatch.LineNumber)
+
+The standalone generator executable is stale or modified. Rebuild it with:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\bootstrap_n64recomp.ps1 -Force
+
+Then rerun this script with -SkipExtract.
+"@
+    }
 }
 
 Write-Host "N64Recomp generation completed successfully."

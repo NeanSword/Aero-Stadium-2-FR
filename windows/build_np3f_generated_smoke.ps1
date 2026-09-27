@@ -6,11 +6,12 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$RunnerVersion = "2026-09-25.1"
+$RunnerVersion = "2026-09-27.2"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $GeneratedDir = Join-Path $RepoRoot "generated\recomp\np3f"
-$N64RecompInclude = Join-Path $RepoRoot ".local\n64recomp\src\include"
+$N64RecompInclude = Join-Path $RepoRoot ".local\n64modernruntime\src\N64Recomp\include"
+$StandaloneN64RecompInclude = Join-Path $RepoRoot ".local\n64recomp\src\include"
 $CMakeSource = Join-Path $RepoRoot "cmake\np3f_generated_smoke"
 $BuildDir = Join-Path $RepoRoot "build\np3f\generated-smoke-vs2022-x64"
 $LogDir = Join-Path $RepoRoot "build\np3f\logs"
@@ -55,8 +56,26 @@ if ($GeneratedSources.Count -eq 0) {
     throw "No generated funcs_*.c files were found in $GeneratedDir."
 }
 
+$RuntimeHeader = Join-Path $N64RecompInclude "recomp.h"
+$StandaloneHeader = Join-Path $StandaloneN64RecompInclude "recomp.h"
+
 Write-Host "Generated translation units : $($GeneratedSources.Count)"
-Write-Host "N64Recomp header            : $(Join-Path $N64RecompInclude 'recomp.h')"
+Write-Host "N64Recomp header            : $RuntimeHeader"
+Write-Host "Header source               : N64ModernRuntime pinned N64Recomp"
+
+if (Test-Path -LiteralPath $StandaloneHeader -PathType Leaf) {
+    $RuntimeHeaderHash = (Get-FileHash -LiteralPath $RuntimeHeader -Algorithm SHA256).Hash
+    $StandaloneHeaderHash = (Get-FileHash -LiteralPath $StandaloneHeader -Algorithm SHA256).Hash
+
+    if ($RuntimeHeaderHash -ne $StandaloneHeaderHash) {
+        Write-Host "[header-check] Le recomp.h standalone differe du recomp.h du runtime." -ForegroundColor Yellow
+        Write-Host "[header-check] La compilation utilisera uniquement celui de N64ModernRuntime." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "[header-check] Headers N64Recomp standalone/runtime identiques."
+    }
+}
+
 Write-Host "Build directory             : $BuildDir"
 Write-Host ""
 

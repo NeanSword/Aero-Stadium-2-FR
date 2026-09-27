@@ -15,6 +15,7 @@ void set_overlay_rdram(uint8_t* rdram) { guest_rdram = rdram; }
 }
 
 extern "C" void unload_overlay_by_id(uint32_t id);
+extern "C" void load_overlay_by_id(uint32_t id, uint32_t ram_addr);
 
 extern "C" void aero_unmap_fragment(uint32_t slot) {
     if (slot < fragment_loaded.size() && fragment_loaded[slot]) {
@@ -51,11 +52,25 @@ extern "C" void aero_map_fragment(uint32_t slot, int32_t ram, uint32_t size) {
         return;
     }
     aero_unmap_fragment(slot);
-    const auto& section = section_table[fragment_sections[slot]];
+    auto& section = section_table[fragment_sections[slot]];
+    // The generated section initially spans the ROM file, including its
+    // disposable relocation table. Stadium retains only the allocation passed
+    // by its registry (header +0x1C), which may be smaller than the ROM file.
+    // Registering ROM size as RAM size falsely overlaps the next allocation.
+    for (size_t i = 0; i < section.num_funcs; ++i) {
+        if (uint64_t(section.funcs[i].offset) + 4 > size) {
+            std::fprintf(stderr, "[fragment-map] Function outside allocation: slot=%u offset=%08X size=%08X\n",
+                slot, section.funcs[i].offset, size);
+            std::_Exit(23);
+        }
+    }
+    section.size = size;
     // Map when Stadium registers the complete allocation, after all chunked
     // DMAs. A 0x1000-byte DMA is insufficient to register a larger code section.
     unload_overlays(ram, size);
-    load_overlays(section.rom_addr, ram, section.size);
+    // Select exactly this slot: its resident size (including BSS) is not a
+    // contiguous ROM DMA range and must not select adjacent ROM sections.
+    load_overlay_by_id(slot, uint32_t(ram));
     fragment_loaded[slot] = true;
     std::fprintf(stderr, "[fragment-map] slot=%u rom=%08X ram=%08X size=%08X\n",
         slot, section.rom_addr, uint32_t(ram), size);

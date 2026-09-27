@@ -1,79 +1,116 @@
 # Native recompilation boundary
 
-The project uses the pinned N64Recomp tool after the NP3F ROM layout and function metadata are stable.
+Aero-Stadium-2-FR utilise N64Recomp pour transformer la carte de fonctions NP3F en code C natif compilable sur Windows x64.
 
-## Pinned dependencies
+## Dépendances épinglées
 
-The repository tracks these public projects as Git submodules:
+Les dépendances principales restent explicitement épinglées :
 
-- `upstream/N64Recomp`
-- `upstream/N64ModernRuntime`
-- `upstream/RecompFrontend`
+- N64Recomp ;
+- N64ModernRuntime ;
+- RT64 ;
+- RecompFrontend comme référence upstream.
 
-They are pinned to the commits recorded in this repository's Git history so a checkout is reproducible.
+Le workflow Windows peut télécharger les sources nécessaires sans Git local dans `.local/`.
 
-The pinned N64Recomp commit used here supports two metadata paths: ELF input, or a function-symbol TOML paired directly with the ROM. Aero-Stadium-2-FR now targets the second path first, avoiding an unnecessary intermediate matching ELF while the NP3F reconstruction is still being developed.
+## Chemin actif
 
-N64ModernRuntime provides the runtime bridge for recompiled N64 projects, including platform/runtime integration and facilities such as overlay handling and ROM-related services. Its upstream documentation recommends CMake integration and supports recent MSVC/GCC toolchains.
-
-## Planned boundary
-
-    NP3F ROM
+```text
+yamls/fr/splat.yaml
         |
         v
-    Splat / reconstruction
+Splat --disassemble-all
         |
         v
-    validated NP3F ELF + metadata
-        |
-        v
-    N64Recomp
-        |
-        v
-    native C/C++
-        |
-        v
-    Aero runtime host
-        |
-        +--> fixed-step simulation
-        +--> input
-        +--> audio
-        +--> renderer
-        +--> Windows platform
-
-No N64Recomp source is copied into this repository. The submodules keep the dependency boundary explicit.
-
-The fixed-step runtime under `native/` remains independently testable so timing behavior can be validated before the recompiled game is connected.
-
-
-## First NP3F recompilation pass
-
-The current experimental path is:
-
-    canonical yamls/fr/splat.yaml
-        |
-        v
-    Splat --disassemble-all
-        |
-        v
-    tools/recomp/generate_np3f_symbols.py
+tools/recomp/generate_np3f_symbols.py
         |
         +--> build/np3f/recomp/np3f.syms.toml
         |
         v
-    recomp/np3f.toml
+recomp/np3f.toml
         |
         v
-    .local/bin/N64Recomp.exe
+N64Recomp
         |
         v
-    generated/recomp/np3f/
+generated/recomp/np3f/
+        |
+        v
+AeroNP3FGenerated.lib
+        |
+        v
+AeroStadium2.exe
+```
 
-On Windows without Git:
+La passe actuelle contient :
 
-    .\windows\bootstrap_n64recomp.ps1
-    .\windows\run_np3f_recomp_prepare.ps1
+- **10 911 fonctions** dans la carte de symboles ;
+- **89 sections** comportant des fonctions ;
+- **214 unités C générées** ;
+- un `lookup.cpp` généré ;
+- une bibliothèque statique MSVC `AeroNP3FGenerated.lib`.
 
-The bootstrap downloads the exact pinned N64Recomp commit and its required submodules as GitHub source archives into `.local/`, which is ignored by the repository.
+Le premier link Windows x64 de `AeroStadium2.exe` est désormais réussi.
 
-This first pass deliberately does not claim runtime correctness yet. Its purpose is to establish a reproducible static-recompilation boundary and expose missing function metadata, overlay relocation needs, unsupported instructions, and runtime interfaces as concrete diagnostics.
+## Configuration canonique
+
+Le fichier :
+
+```text
+recomp/np3f.toml
+```
+
+est la configuration canonique de génération.
+
+Le runner `windows/run_np3f_recomp_prepare.ps1` vérifie sa révision avant d'exécuter N64Recomp. Il vérifie aussi la provenance du binaire N64Recomp standalone et refuse les anciens hooks Aero parasites qui ont existé pendant les premières expérimentations.
+
+## ABI du code généré
+
+Le smoke build compile le C NP3F avec le `recomp.h` provenant du N64Recomp embarqué dans la version épinglée de N64ModernRuntime.
+
+Cette règle est volontaire : le code généré et le runtime final doivent partager la même ABI.
+
+## Compatibilité runtime NP3F
+
+La couche de compatibilité actuelle couvre notamment :
+
+- les alias KSEG1 de la RDRAM ;
+- certains accès MMIO utilisés pendant le bootstrap ;
+- des bridges PI/EPi DMA ;
+- l'enregistrement des fragments exécutables chargés dynamiquement ;
+- le lookup des fonctions d'overlays ;
+- quelques comportements libultra non encore couverts directement par le runtime upstream.
+
+Ces bridges sont des étapes de portage ciblées. Ils doivent être remplacés ou resserrés lorsque le comportement réel du jeu est mieux caractérisé.
+
+## Commandes Windows
+
+Génération :
+
+```powershell
+.\windows\run_np3f_recomp_prepare.ps1
+```
+
+Compilation des unités générées :
+
+```powershell
+.\windows\build_np3f_generated_smoke.ps1 -Clean
+```
+
+Link final :
+
+```powershell
+.\windows\build_np3f_link_smoke.ps1
+```
+
+Test runtime :
+
+```powershell
+.\windows\run_np3f_runtime_probe.ps1
+```
+
+## Statut
+
+La frontière « ROM NP3F -> C généré -> bibliothèque statique -> EXE Windows » est maintenant établie.
+
+La priorité n'est plus de prouver que la chaîne peut linker, mais de valider le comportement du jeu au runtime et de corriger les divergences observées.

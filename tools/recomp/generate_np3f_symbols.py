@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-26.1"
+GENERATOR_VERSION = "2026-09-27.3"
 
 try:
     import yaml
@@ -660,6 +660,7 @@ def apply_verified_function_ranges(rom, sections, funcs, metadata_path):
 def inject_fragment_trampolines(rom, sections, funcs):
     """Recover J/NOP fragment entries and the export jump table in fragment 26."""
     injected = []
+    known_targets = {f.vram for f in funcs}
     for section in sections.values():
         if not section.name.startswith('fragment'):
             continue
@@ -677,7 +678,9 @@ def inject_fragment_trampolines(rom, sections, funcs):
         # Accept only chains that terminate at an already identified function.
         pending = dict(candidates)
         while pending:
-            accepted = [addr for addr, target in pending.items() if target in known]
+            # Export tables also jump to functions in another fragment. Their
+            # R_MIPS_26 relocation is supplied by add_np3f_relocations.py.
+            accepted = [addr for addr, target in pending.items() if target in known_targets]
             if not accepted:
                 break
             for addr in accepted:
@@ -686,6 +689,7 @@ def inject_fragment_trampolines(rom, sections, funcs):
                     funcs.append(Function(name, name, addr, 8, 'fragment-trampoline', section.name))
                     injected.append(dict(section=section.name, vram=addr, target=pending[addr]))
                     known.add(addr)
+                    known_targets.add(addr)
                 del pending[addr]
     return injected
 
@@ -867,6 +871,23 @@ def main() -> int:
 
     if not valid:
         raise SystemExit("ERROR: no valid functions recovered from Splat assembly.")
+
+    # Aero-specific host helper names are never legitimate symbols from the
+    # original NP3F ROM. If one appears here, the cached Splat assembly is
+    # contaminated by an older local experiment and must be regenerated from
+    # the ROM instead of being propagated into N64Recomp output.
+    stale_aero_functions = [
+        func for func in valid
+        if func.original_name.startswith("aero_")
+    ]
+    if stale_aero_functions:
+        first = stale_aero_functions[0]
+        raise SystemExit(
+            "ERROR: stale Aero-specific symbol found in NP3F assembly: "
+            f"{first.original_name} at 0x{first.vram:08X} "
+            f"({first.asm_path}). Run run_np3f_recomp_prepare.ps1 without "
+            "-SkipExtract to regenerate a clean disassembly."
+        )
 
     # Overlay calls can target libultra functions that Splat does not emit as
     # glabels in --disassemble-all output. Recover the complete pinned NP3E
