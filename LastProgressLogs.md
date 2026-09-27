@@ -4,7 +4,7 @@ Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
 ## Dernière avancée — checkpoint publié et blocage du menu identifié
 
-**Sources publiées : branche `codex/native-rt64-integration` à `25b9f994607fa195cd3ba486b22830c068ad9f89`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
+**Sources publiées : branche `codex/native-rt64-integration` à `01792e6324a521299f9612ddb4d5a872fa53ada5`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
 Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` pendant le décodage d'une image. La version locale Work/Codex a affiné le premier hook de callsite : le hook publié est désormais placé dans **`func_8000201C` avant `0x80002038`**, qui est le prédicat partagé par le décodage d'image et la sauvegarde d'options. Il appelle `aero_poll_events(rdram)` seulement si `(int32_t)ctx->r3 <= 0`, c'est-à-dire sur le chemin « pas prêt », sans modifier le résultat ni l'état du jeu. `tools/recomp/test_native_adapters.py` vérifie ce hook exact et interdit le retour de l'ancien hook `func_80003AC0 / 0x80003BB0`. **Le résultat runtime de cette version affinée n'est pas encore validé : reconstruction/test Windows à faire.**
 
@@ -21,6 +21,29 @@ Le test visible 180 s avec le hook conditionnel partagé dépasse l'ancien gel d
 Le crash lit l'adresse hôte correspondant à un offset RDRAM `0x80204894`. Cette valeur est une guest address KSEG0 valide dont l'offset physique est `0x00204894`, mais elle est arrivée zéro-étendue alors que les macros N64Recomp soustraient la base KSEG0 sign-étendue `0xFFFFFFFF80000000`. `np3f_memory_compat.h` normalise désormais explicitement le seul window KSEG0 RDRAM `0x80000000..0x807FFFFF` vers une valeur sign-étendue, tout en conservant la normalisation KSEG1 existante et sans masquer les MMIO/VRAM de fragments. Test ROM-free ajouté. Commit : `25b9f994607fa195cd3ba486b22830c068ad9f89`.
 
 Prochaine action : récupérer `np3f_memory_compat.h` et `test_native_adapters.py` depuis ce commit, relancer `prepare_np3f_native_code.ps1`, puis `test_np3f_boot.ps1 -Seconds 180 -Visible`. Si le crash se déplace, analyser le nouveau probe plutôt que revenir au gel du menu.
+
+### Dernier test Windows — KSEG0 corrigé, boundary overlay fragment10 manquante
+
+Le test suivant confirme que le crash `func_81801420 + 0x298` sur l'adresse guest KSEG0 `0x80204894` a disparu après la normalisation KSEG0. Le runtime continue ensuite jusqu'à un nouveau point d'arrêt déterministe :
+
+```text
+[fragment-map] slot=6  rom=000D7BC0 ram=80145250 size=0000C310
+[fragment-map] slot=8  rom=000AE600 ram=80151570 size=000060F0
+[fragment-map] slot=24 rom=000D4C50 ram=80157670 size=00002A70
+Failed to find function at 0x80157B00
+```
+
+Le ROM start `0xD4C50` correspond à **fragment10**, VRAM nominale `0x82800000`. Le target runtime `0x80157B00` est à l'offset `+0x490`, donc correspond nominalement à **`func_82800490`**. Les symboles publics Stadium 2 placent la fonction suivante à `0x82800620`, soit une taille de `0x190`.
+
+`generate_np3f_symbols.py` utilise maintenant son mécanisme existant `KNOWN_NP3F_MANUAL_FUNCTIONS` pour injecter cette boundary uniquement si Splat ne l'a pas déjà trouvée :
+
+```python
+("fragment10", 0x82800490): ("func_82800490", 0x190)
+```
+
+Un test ROM-free verrouille cette entrée. Commit de branche : `01792e6324a521299f9612ddb4d5a872fa53ada5`.
+
+Prochaine action : récupérer `tools/recomp/generate_np3f_symbols.py` et `tools/recomp/test_native_adapters.py`, relancer `prepare_np3f_native_code.ps1`, reconstruire `AeroNP3FGenerated.lib`, relinker, puis refaire le test visible 180 s. Si `Failed to find function at 0x80157B00` disparaît, analyser le prochain point d'arrêt.
 
 ## Reprise immédiate (détails du checkpoint)
 
