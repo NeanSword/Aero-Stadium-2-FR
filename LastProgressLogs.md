@@ -4,7 +4,7 @@ Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
 ## Dernière avancée — checkpoint publié et blocage du menu identifié
 
-**Sources publiées : branche `codex/native-rt64-integration` à `01792e6324a521299f9612ddb4d5a872fa53ada5`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
+**Sources publiées : branche `codex/native-rt64-integration` à `10038f97ed986d3a8cb8f0d8e50552c4094053d6`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
 Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` pendant le décodage d'une image. La version locale Work/Codex a affiné le premier hook de callsite : le hook publié est désormais placé dans **`func_8000201C` avant `0x80002038`**, qui est le prédicat partagé par le décodage d'image et la sauvegarde d'options. Il appelle `aero_poll_events(rdram)` seulement si `(int32_t)ctx->r3 <= 0`, c'est-à-dire sur le chemin « pas prêt », sans modifier le résultat ni l'état du jeu. `tools/recomp/test_native_adapters.py` vérifie ce hook exact et interdit le retour de l'ancien hook `func_80003AC0 / 0x80003BB0`. **Le résultat runtime de cette version affinée n'est pas encore validé : reconstruction/test Windows à faire.**
 
@@ -44,6 +44,16 @@ Le ROM start `0xD4C50` correspond à **fragment10**, VRAM nominale `0x82800000`.
 Un test ROM-free verrouille cette entrée. Commit de branche : `01792e6324a521299f9612ddb4d5a872fa53ada5`.
 
 Prochaine action : récupérer `tools/recomp/generate_np3f_symbols.py` et `tools/recomp/test_native_adapters.py`, relancer `prepare_np3f_native_code.ps1`, reconstruire `AeroNP3FGenerated.lib`, relinker, puis refaire le test visible 180 s. Si `Failed to find function at 0x80157B00` disparaît, analyser le prochain point d'arrêt.
+
+### Dernier test Windows — boundary fragment10 validée, crash KSEG0 restant via LD
+
+Le run suivant confirme que la boundary `func_82800490` a corrigé l'arrêt `Failed to find function at 0x80157B00` : cette erreur n'apparaît plus. Le runtime poursuit ensuite jusqu'au chargement de fragment4 (slot 8, ROM `0xAE600`) puis retombe dans `func_81801420` sur le même guest pointer KSEG0 zéro-étendu `0x80204894`.
+
+La normalisation `MEM_W/H/B/HU/BU` était bien forcée dans toutes les unités générées, mais `recomp.h` définit `load_doubleword()` **avant** que `np3f_memory_compat.h` ne redéfinisse `MEM_W`. Le helper original a donc capturé l'accès brut et `LD` continuait de contourner la normalisation. L'adresse fautive finit par `+4`, ce qui correspond au premier mot chargé par `load_doubleword()`.
+
+`np3f_memory_compat.h` redéfinit désormais `LD` pour reconstruire le 64-bit via le `MEM_W` normalisé. Aucun autre helper non aligné n'est modifié sans preuve. Test ROM-free ajouté. Commit de branche : `10038f97ed986d3a8cb8f0d8e50552c4094053d6`.
+
+Prochaine action : récupérer seulement `cmake/np3f_generated_smoke/np3f_memory_compat.h` et `tools/recomp/test_native_adapters.py`, lancer le test ROM-free, reconstruire proprement `AeroNP3FGenerated.lib` (préférer `-Clean` pour forcer la prise en compte du forced-include), relinker, puis refaire le test visible 180 s.
 
 ## Reprise immédiate (détails du checkpoint)
 
