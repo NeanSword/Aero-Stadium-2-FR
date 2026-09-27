@@ -17,7 +17,7 @@ Les améliorations graphiques sont développées séparément sur :
 
 ```text
 feature/graphics-quality
-2e57f5d5b65285773f154bcd55d9a417311285c8
+181c38e63247b8deae48d96ddd49fbf54a63e5f6
 ```
 
 Cette branche ajoute une couche `graphics.ini` persistante avec preset **1440p par défaut** (RT64 6x, référence 240 -> 1440), presets 1080p et 4K, MSAA 4x par défaut, upscale 2D complet, filtrage anti-aliased pixel scaling, three-point filtering, format couleur interne High, triple buffering, aspect 4:3 par défaut et options fenêtre/fullscreen.
@@ -27,6 +27,27 @@ Elle ajoute aussi le chargement d'un texture pack RT64 depuis `textures` et un m
 Documentation : `docs/GRAPHICS_SETTINGS.md`.
 
 **État de validation :** le checkpoint stable est validé ; la branche graphique est statiquement vérifiée mais n'a pas encore été compilée/testée sur Windows. Prochaine action : déployer les fichiers du commit `2e57f5d5...`, lancer les tests ROM-free, reconstruire uniquement le link-smoke, puis effectuer un probe visible court avant de continuer vers le pack HD.
+
+### Premier build graphique Windows — configure OK, correction C++ appliquée
+
+Le premier rebuild `-Clean` de la branche graphique configure correctement CMake/MSVC/RT64, puis échoue uniquement à la compilation de `np3f_rt64_renderer.cpp` sur une redéfinition locale de `gfx` :
+
+```text
+error C2374: 'gfx' : redéfinition ; initialisation multiple
+error C2086: 'const aerostadium2::graphics::Settings &gfx' : redéfinition
+```
+
+La cause était une seconde déclaration `const auto& gfx = graphics::current();` dans le même scope constructeur après l'initialisation RT64. Le correctif supprime uniquement cette déclaration redondante ; la référence `gfx` initialisée plus haut reste utilisée par le log final, tandis que la déclaration du bloc de chargement texture reste dans son scope imbriqué.
+
+Commit branche graphique corrigé :
+
+```text
+181c38e63247b8deae48d96ddd49fbf54a63e5f6
+```
+
+Diff : 1 suppression dans `cmake/np3f_link_smoke/np3f_rt64_renderer.cpp`. Le checkpoint stable `8c537b...` reste inchangé.
+
+Prochaine action : récupérer uniquement ce fichier depuis le commit épinglé, relancer `build_np3f_link_smoke.ps1 -Clean -SkipRun`, puis poursuivre le probe 1440p si le build passe.
 
 ## Dernière avancée — baseline runtime stable 180 s, ancien crash overlay supprimé
 
