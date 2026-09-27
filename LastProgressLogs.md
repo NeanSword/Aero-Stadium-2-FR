@@ -4,7 +4,7 @@ Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
 ## Dernière avancée — checkpoint publié et blocage du menu identifié
 
-**Sources publiées : branche `codex/native-rt64-integration` à `36ff3e51f1cce645b4123e0abfe401215731b944`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
+**Sources publiées : branche `codex/native-rt64-integration` à `25b9f994607fa195cd3ba486b22830c068ad9f89`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
 Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` pendant le décodage d'une image. La version locale Work/Codex a affiné le premier hook de callsite : le hook publié est désormais placé dans **`func_8000201C` avant `0x80002038`**, qui est le prédicat partagé par le décodage d'image et la sauvegarde d'options. Il appelle `aero_poll_events(rdram)` seulement si `(int32_t)ctx->r3 <= 0`, c'est-à-dire sur le chemin « pas prêt », sans modifier le résultat ni l'état du jeu. `tools/recomp/test_native_adapters.py` vérifie ce hook exact et interdit le retour de l'ancien hook `func_80003AC0 / 0x80003BB0`. **Le résultat runtime de cette version affinée n'est pas encore validé : reconstruction/test Windows à faire.**
 
@@ -13,6 +13,14 @@ Audio mesuré sur ce test : **3 762 880 échantillons, pic 21 951**. Cela prouve
 ### Correctif runner PowerShell 5.1
 
 `windows/prepare_np3f_native_code.ps1` a été corrigé après un faux échec `NativeCommandError` sur `native_adapter_tests`. Python `unittest` écrit normalement ses points de progression sur stderr ; avec `$ErrorActionPreference = 'Stop'` et `*> $Log`, Windows PowerShell 5.1 transformait cette sortie normale en erreur terminante. Le runner capture désormais stdout/stderr séparément, restaure l'ErrorActionPreference et décide uniquement d'après le vrai `$LASTEXITCODE`. Commit : `36ff3e51f1cce645b4123e0abfe401215731b944`.
+
+### Dernier test Windows — ancien gel dépassé, crash KSEG0 identifié
+
+Le test visible 180 s avec le hook conditionnel partagé dépasse l'ancien gel du menu à ~1 450 listes : progression observée jusqu'à **1 539 display lists**. Le prochain arrêt est un vrai access violation dans `func_81801420 + 0x298`, appartenant au fragment 4 (VRAM nominale 0x81800000, ROM NP3F 0xAE600). Juste avant le crash, ce fragment est chargé via le runtime slot 8.
+
+Le crash lit l'adresse hôte correspondant à un offset RDRAM `0x80204894`. Cette valeur est une guest address KSEG0 valide dont l'offset physique est `0x00204894`, mais elle est arrivée zéro-étendue alors que les macros N64Recomp soustraient la base KSEG0 sign-étendue `0xFFFFFFFF80000000`. `np3f_memory_compat.h` normalise désormais explicitement le seul window KSEG0 RDRAM `0x80000000..0x807FFFFF` vers une valeur sign-étendue, tout en conservant la normalisation KSEG1 existante et sans masquer les MMIO/VRAM de fragments. Test ROM-free ajouté. Commit : `25b9f994607fa195cd3ba486b22830c068ad9f89`.
+
+Prochaine action : récupérer `np3f_memory_compat.h` et `test_native_adapters.py` depuis ce commit, relancer `prepare_np3f_native_code.ps1`, puis `test_np3f_boot.ps1 -Seconds 180 -Visible`. Si le crash se déplace, analyser le nouveau probe plutôt que revenir au gel du menu.
 
 ## Reprise immédiate (détails du checkpoint)
 
