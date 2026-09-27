@@ -39,6 +39,11 @@ class MemoryCompatTests(unittest.TestCase):
         self.assertIn("low >= 0xA0000000u && low < 0xA0800000u", header)
         self.assertIn("const uint32_t kseg0 = low - 0x20000000u;", header)
         self.assertNotIn("low & 0x1FFFFFFF", header)
+        self.assertIn("static inline uint64_t aerostadium2_np3f_load_doubleword(", header)
+        self.assertIn("#undef LD", header)
+        self.assertIn("aerostadium2_np3f_load_doubleword(rdram", header)
+        self.assertIn("MEM_W(offset + 4, reg)", header)
+        self.assertNotIn("#define LD(offset, reg) \\\n    load_doubleword(rdram, offset, reg)", header)
 
 
 class ManualFunctionBoundaryTests(unittest.TestCase):

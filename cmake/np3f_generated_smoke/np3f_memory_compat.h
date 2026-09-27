@@ -84,6 +84,23 @@ static inline int32_t* aerostadium2_np3f_mem_w_ptr(
     *(uint32_t*)(rdram + ((aerostadium2_np3f_sd_addr + 0) - 0xFFFFFFFF80000000ULL)) = (uint32_t)((gpr)(val) >> 32); \
 }
 
+// recomp.h defines load_doubleword() before this compatibility header can
+// replace MEM_W, so that helper permanently captures the raw KSEG0 subtraction.
+// Override LD itself and rebuild the 64-bit load from our normalized MEM_W.
+static inline uint64_t aerostadium2_np3f_load_doubleword(
+    uint8_t* rdram,
+    gpr offset,
+    gpr reg
+) {
+    const uint64_t lo = (uint64_t)(uint32_t)MEM_W(offset + 4, reg);
+    const uint64_t hi = (uint64_t)(uint32_t)MEM_W(offset + 0, reg);
+    return lo | (hi << 32);
+}
+
+#undef LD
+#define LD(offset, reg) \
+    aerostadium2_np3f_load_doubleword(rdram, (gpr)(offset), (gpr)(reg))
+
 
 
 static inline void aerostadium2_np3f_sprintf_prout_recomp(
