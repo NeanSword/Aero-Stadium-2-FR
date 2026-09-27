@@ -89,6 +89,9 @@ class GraphicsSettingsTests(unittest.TestCase):
         self.assertIn("RT64::UserConfiguration::InternalColorFormat::High", renderer)
         self.assertIn("loadReplacementDirectory", renderer)
         self.assertIn('pack / L"rt64.json"', renderer)
+        self.assertIn("dump_textures=false", settings)
+        self.assertIn("texture_dump_dir=texture_dumps", settings)
+        self.assertIn("dumpingTexturesDirectory", renderer)
 
 
 class FragmentRelocationTests(unittest.TestCase):

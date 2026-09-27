@@ -39,6 +39,8 @@ window_width=1280
 window_height=960
 texture_replacements=true
 texture_pack=textures
+dump_textures=false
+texture_dump_dir=texture_dumps
 ```
 
 ### Presets de résolution
@@ -68,4 +70,10 @@ RT64 sait remplacer les textures à partir d'un dossier ou pack. Aero réserve p
 
 Le dossier n'est chargé que lorsqu'il contient un `rt64.json` valide. Aucun asset propriétaire n'est fourni dans le dépôt.
 
-Une future étape identifiera les hashes RT64 du fond titre, des glyphes, du HUD et des textures importantes pour produire un pack HD spécifique NP3F.
+Pour capturer les textures utilisées par le jeu, passer temporairement :
+
+```ini
+dump_textures=true
+```
+
+RT64 écrira alors les textures/hash dans `texture_dump_dir` (par défaut `texture_dumps`). Un run jusqu'à l'écran titre permettra d'identifier précisément le fond, les glyphes, le HUD et les textures importantes, puis de construire un pack HD spécifique NP3F.

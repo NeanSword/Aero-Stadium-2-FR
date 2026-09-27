@@ -254,6 +254,23 @@ public:
                     pack.c_str()
                 );
             }
+
+            if (gfx.dump_textures && app_->state != nullptr) {
+                const std::filesystem::path dump_dir = graphics::texture_dump_path();
+                std::error_code ec;
+                std::filesystem::create_directories(dump_dir, ec);
+                if (!ec) {
+                    app_->state->dumpingTexturesDirectory = dump_dir;
+                    std::printf("[rt64] Dump textures actif: %ls\n", dump_dir.c_str());
+                }
+                else {
+                    std::fprintf(
+                        stderr,
+                        "[rt64] Impossible de creer le dossier de dump textures: %ls\n",
+                        dump_dir.c_str()
+                    );
+                }
+            }
         }
 
         if (setup_result != ultramodern::renderer::SetupResult::Success) {

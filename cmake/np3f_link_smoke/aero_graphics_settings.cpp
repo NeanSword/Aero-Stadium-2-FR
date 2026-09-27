@@ -110,6 +110,12 @@ void apply_entry(const std::string& raw_key, const std::string& raw_value) {
     else if (key == "texture_pack") {
         g_settings.texture_pack = std::filesystem::path(trim(raw_value));
     }
+    else if (key == "dump_textures") {
+        g_settings.dump_textures = parse_bool(raw_value, g_settings.dump_textures);
+    }
+    else if (key == "texture_dump_dir") {
+        g_settings.texture_dump_dir = std::filesystem::path(trim(raw_value));
+    }
 }
 
 void write_default_file(const std::filesystem::path& path) {
@@ -134,7 +140,9 @@ void write_default_file(const std::filesystem::path& path) {
         "window_width=1280\n"
         "window_height=960\n"
         "texture_replacements=true\n"
-        "texture_pack=textures\n";
+        "texture_pack=textures\n"
+        "dump_textures=false\n"
+        "texture_dump_dir=texture_dumps\n";
 }
 
 } // namespace
@@ -173,6 +181,9 @@ void initialize(const std::filesystem::path& root) {
         const std::filesystem::path dir = g_config_root / g_settings.texture_pack;
         std::filesystem::create_directories(dir, ec);
     }
+    if (g_settings.dump_textures) {
+        std::filesystem::create_directories(texture_dump_path(), ec);
+    }
 
     std::printf(
         "[graphics] config=%ls preset=%s target=%dp scale=%.2fx MSAA=%dx upscale2D=%s textures=%s\n",
@@ -207,6 +218,16 @@ std::filesystem::path texture_pack_path() {
         return g_settings.texture_pack;
     }
     return g_config_root / g_settings.texture_pack;
+}
+
+std::filesystem::path texture_dump_path() {
+    if (g_settings.texture_dump_dir.empty()) {
+        return g_config_root / L"texture_dumps";
+    }
+    if (g_settings.texture_dump_dir.is_absolute()) {
+        return g_settings.texture_dump_dir;
+    }
+    return g_config_root / g_settings.texture_dump_dir;
 }
 
 double resolution_multiplier() {

@@ -54,6 +54,8 @@ struct Settings {
     int window_height = 960;
     bool texture_replacements = true;
     std::filesystem::path texture_pack = L"textures";
+    bool dump_textures = false;
+    std::filesystem::path texture_dump_dir = L"texture_dumps";
 };
 
 void initialize(const std::filesystem::path& config_root);
@@ -61,6 +63,7 @@ const Settings& current();
 const std::filesystem::path& config_root();
 std::filesystem::path config_file_path();
 std::filesystem::path texture_pack_path();
+std::filesystem::path texture_dump_path();
 double resolution_multiplier();
 int target_render_height();
 const char* preset_name();
