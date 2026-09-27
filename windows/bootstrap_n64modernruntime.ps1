@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.4"
+$BootstrapVersion = "2026-09-27.5"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -663,6 +663,17 @@ if (-not (Test-Path -LiteralPath $RuntimeEventsCpp -PathType Leaf)) {
 }
 $RuntimeEventsText = Get-Content -LiteralPath $RuntimeEventsCpp -Raw
 $EventRegDiagMarker = "// Aero-Stadium-2-FR event registration diagnostics 2026-09-27.1"
+$EventsCstdioMarker = "#include <cstdio>"
+if (-not $RuntimeEventsText.Contains($EventsCstdioMarker)) {
+    $EventsIncludeNeedle = "#include <cstring>"
+    if (-not $RuntimeEventsText.Contains($EventsIncludeNeedle)) {
+        throw "Could not find expected events.cpp include block for <cstdio> insertion."
+    }
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $EventsIncludeNeedle,
+        $EventsIncludeNeedle + [Environment]::NewLine + $EventsCstdioMarker
+    )
+}
 
 $OriginalEventRegistration = @"
 extern "C" void osSetEventMesg(RDRAM_ARG OSEvent event_id, PTR(OSMesgQueue) mq_, OSMesg msg) {
