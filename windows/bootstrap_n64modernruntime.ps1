@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-27.3"
+$BootstrapVersion = "2026-09-27.4"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -559,6 +559,156 @@ else {
     Write-Host "Applied external OSMesgQueue delivery diagnostics: ultramodern"
 }
 
+# Trace which guest queues Stadium 2 blocks on and which event registrations
+# target those queues. This is observability-only: scheduling and queue
+# semantics remain unchanged.
+$QueueFlowDiagMarker = "// Aero-Stadium-2-FR queue block/wake diagnostics 2026-09-27.1"
+$MesgQueueText = Get-Content -LiteralPath $MesgQueueCpp -Raw
+
+$OriginalWakeRecvBlock = @"
+    // If any threads were blocked on receiving from this message queue, pop the first one and schedule it.
+    PTR(PTR(OSThread)) blocked_queue = GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv);
+    if (!ultramodern::thread_queue_empty(PASS_RDRAM blocked_queue)) {
+        ultramodern::schedule_running_thread(PASS_RDRAM ultramodern::thread_queue_pop(PASS_RDRAM blocked_queue));
+    }
+"@
+$PatchedWakeRecvBlock = @"
+    // If any threads were blocked on receiving from this message queue, pop the first one and schedule it.
+    PTR(PTR(OSThread)) blocked_queue = GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv);
+    if (!ultramodern::thread_queue_empty(PASS_RDRAM blocked_queue)) {
+        PTR(OSThread) woken_thread = ultramodern::thread_queue_pop(PASS_RDRAM blocked_queue);
+        static uint32_t aero_wake_recv_logs = 0;
+        if (aero_wake_recv_logs < 128) {
+            OSMesgQueue* wake_mq = TO_PTR(OSMesgQueue, mq_);
+            OSThread* wake_thread = TO_PTR(OSThread, woken_thread);
+            std::fprintf(
+                stderr,
+                "[mq-wake-recv] mq=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                static_cast<uint32_t>(mq_),
+                static_cast<uint32_t>(woken_thread),
+                wake_thread->id,
+                wake_thread->priority,
+                wake_mq->validCount,
+                wake_mq->msgCount
+            );
+            std::fflush(stderr);
+            ++aero_wake_recv_logs;
+        }
+        ultramodern::schedule_running_thread(PASS_RDRAM woken_thread);
+    }
+"@
+
+$OriginalBlockRecvLoop = @"
+        while (MQ_IS_EMPTY(mq)) {
+            debug_printf("[Message Queue] Thread %d is blocked on receive\n", TO_PTR(OSThread, ultramodern::this_thread())->id);
+            ultramodern::thread_queue_insert(PASS_RDRAM GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv), ultramodern::this_thread());
+            ultramodern::run_next_thread_and_wait(PASS_RDRAM1);
+        }
+"@
+$PatchedBlockRecvLoop = @"
+        while (MQ_IS_EMPTY(mq)) {
+            static uint32_t aero_block_recv_logs = 0;
+            if (aero_block_recv_logs < 128) {
+                const PTR(OSThread) blocked_thread_addr = ultramodern::this_thread();
+                OSThread* blocked_thread = TO_PTR(OSThread, blocked_thread_addr);
+                std::fprintf(
+                    stderr,
+                    "[mq-block-recv] mq=0x%08X thread=0x%08X id=%d pri=%d valid=%d count=%d\n",
+                    static_cast<uint32_t>(mq_),
+                    static_cast<uint32_t>(blocked_thread_addr),
+                    blocked_thread->id,
+                    blocked_thread->priority,
+                    mq->validCount,
+                    mq->msgCount
+                );
+                std::fflush(stderr);
+                ++aero_block_recv_logs;
+            }
+            debug_printf("[Message Queue] Thread %d is blocked on receive\n", TO_PTR(OSThread, ultramodern::this_thread())->id);
+            ultramodern::thread_queue_insert(PASS_RDRAM GET_MEMBER(OSMesgQueue, mq_, blocked_on_recv), ultramodern::this_thread());
+            ultramodern::run_next_thread_and_wait(PASS_RDRAM1);
+        }
+"@
+
+if ($MesgQueueText.Contains($QueueFlowDiagMarker)) {
+    if (-not $MesgQueueText.Contains($PatchedWakeRecvBlock) -or
+        -not $MesgQueueText.Contains($PatchedBlockRecvLoop)) {
+        throw "N64ModernRuntime queue flow diagnostic marker exists, but patched blocks do not match expected content."
+    }
+    Write-Host "Queue block/wake diagnostics already applied."
+}
+else {
+    if (-not $MesgQueueText.Contains($OriginalWakeRecvBlock)) {
+        throw "Could not find expected blocked-receiver wake block in N64ModernRuntime."
+    }
+    if (-not $MesgQueueText.Contains($OriginalBlockRecvLoop)) {
+        throw "Could not find expected blocking receive loop in N64ModernRuntime."
+    }
+
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalWakeRecvBlock,
+        $QueueFlowDiagMarker + [Environment]::NewLine + $PatchedWakeRecvBlock
+    )
+    $MesgQueueText = $MesgQueueText.Replace(
+        $OriginalBlockRecvLoop,
+        $PatchedBlockRecvLoop
+    )
+    Set-Content -LiteralPath $MesgQueueCpp -Value $MesgQueueText -Encoding UTF8
+    Write-Host "Applied queue block/wake diagnostics: ultramodern"
+}
+
+$RuntimeEventsCpp = Join-Path $SourceDir "ultramodern\src\events.cpp"
+if (-not (Test-Path -LiteralPath $RuntimeEventsCpp -PathType Leaf)) {
+    throw "Runtime events source file not found: $RuntimeEventsCpp"
+}
+$RuntimeEventsText = Get-Content -LiteralPath $RuntimeEventsCpp -Raw
+$EventRegDiagMarker = "// Aero-Stadium-2-FR event registration diagnostics 2026-09-27.1"
+
+$OriginalEventRegistration = @"
+extern "C" void osSetEventMesg(RDRAM_ARG OSEvent event_id, PTR(OSMesgQueue) mq_, OSMesg msg) {
+    std::lock_guard lock{ events_context.message_mutex };
+
+    switch (event_id) {
+"@
+$PatchedEventRegistration = @"
+extern "C" void osSetEventMesg(RDRAM_ARG OSEvent event_id, PTR(OSMesgQueue) mq_, OSMesg msg) {
+    std::lock_guard lock{ events_context.message_mutex };
+
+    $EventRegDiagMarker
+    static uint32_t aero_event_reg_logs = 0;
+    if (aero_event_reg_logs < 64) {
+        std::fprintf(
+            stderr,
+            "[mq-event-reg] event=%u mq=0x%08X msg=0x%08X\n",
+            static_cast<unsigned>(event_id),
+            static_cast<uint32_t>(mq_),
+            static_cast<uint32_t>(msg)
+        );
+        std::fflush(stderr);
+        ++aero_event_reg_logs;
+    }
+
+    switch (event_id) {
+"@
+
+if ($RuntimeEventsText.Contains($EventRegDiagMarker)) {
+    if (-not $RuntimeEventsText.Contains($PatchedEventRegistration)) {
+        throw "N64ModernRuntime event registration diagnostic marker exists, but patched block does not match expected content."
+    }
+    Write-Host "Event registration diagnostics already applied."
+}
+elseif ($RuntimeEventsText.Contains($OriginalEventRegistration)) {
+    $RuntimeEventsText = $RuntimeEventsText.Replace(
+        $OriginalEventRegistration,
+        $PatchedEventRegistration
+    )
+    Set-Content -LiteralPath $RuntimeEventsCpp -Value $RuntimeEventsText -Encoding UTF8
+    Write-Host "Applied event registration diagnostics: ultramodern"
+}
+else {
+    throw "Could not find expected osSetEventMesg block in N64ModernRuntime."
+}
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
@@ -693,6 +843,7 @@ $Versions = @{
     o1heap = "a124b850791db2a33f7354d2b0aa7da821cef6f5"
     aero_windows_shutdown_rdram_patch = "2026-09-27.1"
     aero_message_queue_diagnostics = "2026-09-27.1"
+    aero_queue_flow_diagnostics = "2026-09-27.1"
 }
 
 $Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8
