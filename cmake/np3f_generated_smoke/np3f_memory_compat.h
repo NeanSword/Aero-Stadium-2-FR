@@ -12,17 +12,22 @@ extern recomp_func_t* aero_lookup_asset(uint8_t* rdram, int32_t target);
 }
 #endif
 
-// Pokemon Stadium 2 FR uses KSEG1 aliases of main RDRAM in a few runtime
-// paths. N64Recomp's generic MEM_* macros currently treat all generated
-// addresses relative to KSEG0, so an address such as 0xA00DB122 would land
-// 0x20000000 bytes past its KSEG0 alias and hit the runtime's guard region.
+// Pokemon Stadium 2 FR reaches RDRAM through both KSEG0 and KSEG1 aliases.
+// N64Recomp's MEM_* macros subtract the sign-extended KSEG0 base
+// 0xFFFFFFFF80000000, so a zero-extended guest pointer such as 0x80204894
+// would otherwise become an 0x80204894-byte host offset instead of 0x00204894.
+// KSEG1 aliases have the analogous +0x20000000 problem.
 //
-// Only normalize the KSEG1 window that aliases the console's 8 MiB RDRAM.
-// Do not normalize the rest of KSEG1: addresses such as 0xA4000000 are MMIO
-// and must remain visible as unsupported accesses until they receive a
-// dedicated runtime translation.
+// Normalize only the two 8 MiB windows that alias physical RDRAM. Do not
+// normalize other KSEG0/KSEG1 addresses: fragment VRAM lives outside this
+// window and addresses such as 0xA4000000 are MMIO.
 static inline gpr aerostadium2_np3f_normalize_rdram_alias(gpr address) {
     const uint32_t low = (uint32_t)address;
+
+    if (low >= 0x80000000u && low < 0x80800000u) {
+        return (gpr)(int64_t)(int32_t)low;
+    }
+
     if (low >= 0xA0000000u && low < 0xA0800000u) {
         const uint32_t kseg0 = low - 0x20000000u;
         return (gpr)(int64_t)(int32_t)kseg0;

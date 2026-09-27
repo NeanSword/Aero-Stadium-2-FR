@@ -31,6 +31,16 @@ class RecompHookTests(unittest.TestCase):
         self.assertNotIn('func = "func_80003AC0"\nbefore_vram = 0x80003BB0', config)
 
 
+class MemoryCompatTests(unittest.TestCase):
+    def test_rdram_alias_normalization_covers_zero_extended_kseg0_and_kseg1(self):
+        header = Path("cmake/np3f_generated_smoke/np3f_memory_compat.h").read_text(encoding="utf-8")
+        self.assertIn("low >= 0x80000000u && low < 0x80800000u", header)
+        self.assertIn("return (gpr)(int64_t)(int32_t)low;", header)
+        self.assertIn("low >= 0xA0000000u && low < 0xA0800000u", header)
+        self.assertIn("const uint32_t kseg0 = low - 0x20000000u;", header)
+        self.assertNotIn("low & 0x1FFFFFFF", header)
+
+
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
         rom = bytearray(0x100)
