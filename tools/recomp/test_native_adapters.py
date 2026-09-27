@@ -41,6 +41,15 @@ class MemoryCompatTests(unittest.TestCase):
         self.assertNotIn("low & 0x1FFFFFFF", header)
 
 
+class ManualFunctionBoundaryTests(unittest.TestCase):
+    def test_fragment10_runtime_indirect_target_is_known(self):
+        from generate_np3f_symbols import KNOWN_NP3F_MANUAL_FUNCTIONS
+        self.assertEqual(
+            KNOWN_NP3F_MANUAL_FUNCTIONS[("fragment10", 0x82800490)],
+            ("func_82800490", 0x190),
+        )
+
+
 class FragmentRelocationTests(unittest.TestCase):
     def fixture(self):
         rom = bytearray(0x100)

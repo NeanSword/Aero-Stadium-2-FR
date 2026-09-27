@@ -105,6 +105,13 @@ KNOWN_NP3F_MANUAL_FUNCTIONS: dict[tuple[str, int], tuple[str, int]] = {
     # It runs through the delay slot at 0x800217D0; the next glabel is 0x800217D4.
     ("text", 0x80021610): ("func_80021610", 0x1C4),
     ("text", 0x800217D4): ("func_800217D4", 0x28C),
+
+    # fragment10 is loaded relocatably during menu flow. The game performs an
+    # indirect call to runtime_base + 0x490; public Stadium 2 symbols identify
+    # this as func_82800490 and the next entry begins at 0x82800620. Splat's
+    # symbol-clean FR disassembly can omit this internal boundary, which leaves
+    # librecomp unable to register the relocated runtime address.
+    ("fragment10", 0x82800490): ("func_82800490", 0x190),
 }
 
 
