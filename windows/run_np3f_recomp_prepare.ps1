@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-27.4"
+$RunnerVersion = "2026-09-27.5"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -22,7 +22,7 @@ $StandaloneN64RecompRoot = Join-Path $RepoRoot ".local\n64recomp"
 $StandaloneN64RecompSource = Join-Path $StandaloneN64RecompRoot "src"
 $StandaloneVersions = Join-Path $StandaloneN64RecompRoot "versions.json"
 $ExpectedN64RecompCommit = "ffb39cdad1da5de07eaaa48bd1db4a89a7986771"
-$ExpectedConfigVersion = "2026-09-27.1"
+$ExpectedConfigVersion = "2026-09-27.2"
 $ForbiddenGeneratedHooks = @(
     "aero_lookup_asset",
     "aero_cartridge_read_u32",
