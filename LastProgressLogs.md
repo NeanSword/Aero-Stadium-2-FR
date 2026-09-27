@@ -49,6 +49,42 @@ Diff : 1 suppression dans `cmake/np3f_link_smoke/np3f_rt64_renderer.cpp`. Le che
 
 Prochaine action : récupérer uniquement ce fichier depuis le commit épinglé, relancer `build_np3f_link_smoke.ps1 -Clean -SkipRun`, puis poursuivre le probe 1440p si le build passe.
 
+### Branche graphique 1440p validée 180 s
+
+Le premier build corrigé de la branche `feature/graphics-quality` compile entièrement avec MSVC/RT64 et produit `AeroStadium2.exe` avec un exit code de build 0.
+
+Le probe visible 180 s confirme l'activation réelle des réglages :
+
+```text
+[graphics] ... preset=1440p target=1440p scale=6.00x MSAA=4x upscale2D=all textures=on
+[rt64] Renderer initialise: api=D3D12, preset=1440p, scale=6.00x, MSAA=4x, 2D=all, aspect=4:3, cadence=originale.
+```
+
+Aucun `[win-crash]`, aucun `Failed to find function`, aucune erreur RT64 ni erreur texture-pack n'apparaît dans ce run. Le renderer est encore actif à la fin :
+
+```text
+[test-result] seconds=180 entrypoint=1 threads=10 rsp=1 displaylist=1 completed=4342 age_ms=16 progressing=1
+[audio-result] samples=11246656 peak=31204
+```
+
+Les métriques restent très proches du checkpoint stable précédent (4348 completions / age 31 ms), donc le preset 1440p 6x + MSAA 4x + upscale 2D complet ne montre pas de régression de progression dans ce scénario.
+
+Un second checkpoint de retour a été créé :
+
+```text
+checkpoint/graphics-1440p-stable-180s-2026-09-27
+181c38e63247b8deae48d96ddd49fbf54a63e5f6
+```
+
+Le checkpoint runtime original reste également inchangé :
+
+```text
+checkpoint/stable-runtime-180s-2026-09-27
+8c537b748578ea2f600c74e669946965886262a7
+```
+
+**Prochaine phase :** capturer les textures RT64 utilisées par l'écran titre, les glyphes, le HUD et les textures 2D/3D importantes avec `dump_textures=true`, puis construire un vrai texture pack HD NP3F. L'objectif est d'améliorer les détails source réels, pas seulement de les afficher à plus haute résolution.
+
 ## Dernière avancée — baseline runtime stable 180 s, ancien crash overlay supprimé
 
 **Sources publiées : branche `codex/native-rt64-integration` à `8c537b748578ea2f600c74e669946965886262a7`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
