@@ -1,8 +1,8 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
+Dernière mise à jour : **27 septembre 2026, 21:27 Europe/Paris**.
 
-## Dernière avancée — checkpoint publié et blocage du menu identifié
+## Dernière avancée — baseline runtime stable 180 s, ancien crash overlay supprimé
 
 **Sources publiées : branche `codex/native-rt64-integration` à `8c537b748578ea2f600c74e669946965886262a7`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
 
@@ -10,11 +10,44 @@ Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis s
 
 Audio mesuré sur ce test : **3 762 880 échantillons, pic 21 951**. Cela prouve une production non silencieuse, pas la qualité sonore. Les textures noires signalées par l'utilisateur restent à diagnostiquer.
 
+### Baseline runtime stable — test 180 s après correction du preload overlay
+
+Le test visible 180 s construit depuis le commit de branche `8c537b748578ea2f600c74e669946965886262a7` ne montre **aucun `[win-crash]`**, aucun `Failed to find function` et aucun softlock graphique à la fin du probe.
+
+Résultat du harness :
+
+```text
+[test-result] seconds=180 entrypoint=1 threads=10 rsp=1 displaylist=1 completed=4348 age_ms=31 progressing=1
+[audio-result] samples=11174688 peak=32767
+```
+
+Progression RT64 observée jusqu'à la fin :
+
+```text
+screens=6900 lists=3311
+screens=7200 lists=3461
+screens=7500 lists=3611
+screens=7800 lists=3761
+screens=8100 lists=3911
+screens=8400 lists=4061
+screens=8700 lists=4211
+```
+
+Le compteur continue d'augmenter d'environ 150 listes toutes les 300 présentations sur la fin du test. Le harness rapporte encore `progressing=1` avec seulement 31 ms depuis la dernière completion : **ce run se termine par la limite de 180 s alors que le jeu continue de tourner**, pas par un blocage identifié.
+
+Le crash historique `func_81801420 / rdram_offset=0x80204894` est donc supprimé par le correctif du double chargement d'overlay. La boundary `func_82800490` reste également validée puisque l'erreur `Failed to find function at 0x80157B00` ne réapparaît pas.
+
+Important : les anciens patchs expérimentaux de normalisation KSEG0 et de redéfinition `LD` sont encore présents dans la branche, mais **ils ne sont plus considérés comme la cause de cette correction**. Le diagnostic du C généré a prouvé que `func_81801420` n'utilisait que `MEM_W`; la cause démontrée était le preload/remap overlay. Ne pas les étendre davantage. Leur nettoyage éventuel devra être fait plus tard par test A/B, une fois un scénario gameplay reproductible établi.
+
+Le runtime charge maintenant de nombreux fragments supplémentaires pendant les 180 s, notamment les slots 7, 19, 3, 51, 22, 50, 4, 49 et 0, sans crash. Les messages `No compiled section for slot=239` continuent d'apparaître pour des assets non compilés ; ils ne sont pas bloquants dans ce run.
+
+**Prochaine phase : validation interactive longue plutôt qu'un nouveau patch.** Utiliser `test_np3f_boot.ps1 -Seconds 600 -Visible`, naviguer volontairement dans plusieurs menus, lancer au moins un combat ou mode jouable, tester les entrées manette, la sauvegarde/options et noter les problèmes visuels/audio. Ne modifier le runtime que si un nouveau défaut reproductible apparaît dans ce scénario.
+
 ### Correctif runner PowerShell 5.1
 
 `windows/prepare_np3f_native_code.ps1` a été corrigé après un faux échec `NativeCommandError` sur `native_adapter_tests`. Python `unittest` écrit normalement ses points de progression sur stderr ; avec `$ErrorActionPreference = 'Stop'` et `*> $Log`, Windows PowerShell 5.1 transformait cette sortie normale en erreur terminante. Le runner capture désormais stdout/stderr séparément, restaure l'ErrorActionPreference et décide uniquement d'après le vrai `$LASTEXITCODE`. Commit : `36ff3e51f1cce645b4123e0abfe401215731b944`.
 
-### Dernier test Windows — ancien gel dépassé, crash KSEG0 identifié
+### Historique (supplanté) — ancien gel dépassé, première hypothèse KSEG0
 
 Le test visible 180 s avec le hook conditionnel partagé dépasse l'ancien gel du menu à ~1 450 listes : progression observée jusqu'à **1 539 display lists**. Le prochain arrêt est un vrai access violation dans `func_81801420 + 0x298`, appartenant au fragment 4 (VRAM nominale 0x81800000, ROM NP3F 0xAE600). Juste avant le crash, ce fragment est chargé via le runtime slot 8.
 
@@ -22,7 +55,7 @@ Le crash lit l'adresse hôte correspondant à un offset RDRAM `0x80204894`. Cett
 
 Prochaine action : récupérer `np3f_memory_compat.h` et `test_native_adapters.py` depuis ce commit, relancer `prepare_np3f_native_code.ps1`, puis `test_np3f_boot.ps1 -Seconds 180 -Visible`. Si le crash se déplace, analyser le nouveau probe plutôt que revenir au gel du menu.
 
-### Dernier test Windows — KSEG0 corrigé, boundary overlay fragment10 manquante
+### Historique — boundary overlay fragment10 manquante
 
 Le test suivant confirme que le crash `func_81801420 + 0x298` sur l'adresse guest KSEG0 `0x80204894` a disparu après la normalisation KSEG0. Le runtime continue ensuite jusqu'à un nouveau point d'arrêt déterministe :
 
@@ -45,7 +78,7 @@ Un test ROM-free verrouille cette entrée. Commit de branche : `01792e6324a52129
 
 Prochaine action : récupérer `tools/recomp/generate_np3f_symbols.py` et `tools/recomp/test_native_adapters.py`, relancer `prepare_np3f_native_code.ps1`, reconstruire `AeroNP3FGenerated.lib`, relinker, puis refaire le test visible 180 s. Si `Failed to find function at 0x80157B00` disparaît, analyser le prochain point d'arrêt.
 
-### Dernier test Windows — boundary fragment10 validée, crash KSEG0 restant via LD
+### Historique (supplanté) — hypothèse LD
 
 Le run suivant confirme que la boundary `func_82800490` a corrigé l'arrêt `Failed to find function at 0x80157B00` : cette erreur n'apparaît plus. Le runtime poursuit ensuite jusqu'au chargement de fragment4 (slot 8, ROM `0xAE600`) puis retombe dans `func_81801420` sur le même guest pointer KSEG0 zéro-étendu `0x80204894`.
 
@@ -55,7 +88,7 @@ La normalisation `MEM_W/H/B/HU/BU` était bien forcée dans toutes les unités g
 
 Prochaine action : récupérer seulement `cmake/np3f_generated_smoke/np3f_memory_compat.h` et `tools/recomp/test_native_adapters.py`, lancer le test ROM-free, reconstruire proprement `AeroNP3FGenerated.lib` (préférer `-Clean` pour forcer la prise en compte du forced-include), relinker, puis refaire le test visible 180 s.
 
-### Dernier test Windows — boundary fragment10 toujours corrigée, crash KSEG0 identique malgré le patch LD
+### Historique (supplanté) — crash inchangé après hypothèse LD
 
 Le nouveau binaire a bien été reconstruit (SHA-256 `E1FF4CE74BEF60EEA538006708D006439E6B89A69C8C92EAE448EEEDE6C83DB0`). L'arrêt `Failed to find function at 0x80157B00` reste absent, donc la boundary `func_82800490` est toujours validée.
 
