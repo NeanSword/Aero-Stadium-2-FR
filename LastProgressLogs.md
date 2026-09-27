@@ -1,8 +1,16 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **27 septembre 2026, 17:23 Europe/Paris**.
+Dernière mise à jour : **27 septembre 2026, 17:30 Europe/Paris**.
 
-## Reprise immédiate
+## Dernière avancée — checkpoint publié et blocage du menu identifié
+
+**Sources publiées : [e2221be](https://github.com/NeanSword/Aero-Stadium-2-FR/commit/e2221be441b5b55008fc74f5283541a7cbafaf42)** sur codex/native-rt64-integration. Arbre e79feff16e4fe6d38038d3ee322e6da8808e5ee1, identique au commit local 078588f. La fusion locale est terminée et synchronisée ; main reçoit le journal, les corrections de code restent sur la branche.
+
+Le test `20260927-172302-547` (300 s, code 24) atteint un écran de menu, puis se fige à 1 450 listes. Les piles montrent une boucle `func_80003AC0 -> func_8000201C` à 0x80003BB0, pendant le décodage d'une image. Un hook local `aero_poll_events` a été ajouté dans cette boucle pour laisser traiter les événements de fin SP/DP sans forcer le drapeau attendu. Reconstruction/test en cours, **ce hook est postérieur au checkpoint e2221be**.
+
+Audio mesuré sur ce test : **3 762 880 échantillons, pic 21 951**. Cela prouve une production non silencieuse, pas la qualité sonore. Les textures noires signalées par l'utilisateur restent à diagnostiquer.
+
+## Reprise immédiate (détails du checkpoint)
 
 Le jeu natif Windows affiche maintenant **l'introduction, l'écran titre français et une démonstration de combat en 3D**. Observé directement dans la fenêtre AeroStadium2 via Computer Use. **Certaines textures sont noires**, signalement utilisateur à diagnostiquer ; ne pas déclarer le rendu correct ou le jeu terminé.
 
@@ -22,9 +30,9 @@ Ce dossier n'est pas un checkout Git. Les sources sont préparées dans :
 C:\Users\dofus\.codex\.chatgpt-projects\g-p-6ab58e3c969481918cad038344c3d218\Aero-Stadium-2-integration
 ```
 
-Branche : **codex/native-rt64-integration**. Le checkpoint publié demeure [a9bd5cae](https://github.com/NeanSword/Aero-Stadium-2-FR/commit/a9bd5cae42a424e23e5d9c6f358b1bf0ec94cba6). Les corrections décrites ci-dessous sont encore locales au moment de cette entrée ; publication d'un nouveau checkpoint en cours. Main contient ce journal mais pas encore toutes ces corrections.
+Branche : **codex/native-rt64-integration**, checkpoint **e2221be** publié. Main contient ce journal mais pas encore ces corrections de code.
 
-La fusion locale des ajouts récents de main est résolue mais pas encore commitée. Préserver les fichiers et terminer cette fusion. Les sources/exe de Downloads reçus de main pendant l'interruption nocturne ont été sauvegardés dans **build/codex-backup-20260927-042913/** avant le déploiement des sources réunies. Ancien backup : build/codex-backup-rt64-integration. Préserver également l'ancien checkout sale Aero-Stadium-2-FR ; sources/ du miroir ChatGPT est en lecture seule.
+La fusion locale des ajouts récents de main est terminée. Préserver les modifications postérieures au checkpoint indiquées en tête. Les sources/exe de Downloads reçus de main pendant l'interruption nocturne ont été sauvegardés dans **build/codex-backup-20260927-042913/** avant le déploiement des sources réunies. Ancien backup : build/codex-backup-rt64-integration. Préserver également l'ancien checkout sale Aero-Stadium-2-FR ; sources/ du miroir ChatGPT est en lecture seule.
 
 Exécutable :
 ```text
