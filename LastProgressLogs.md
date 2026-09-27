@@ -1,731 +1,179 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-> Point de reprise technique pour ChatGPT Work / Codex / futurs agents.
-> Mis à jour le 27 septembre 2026 après le dernier runtime probe NP3F.
->
-> **Toujours lire ce fichier avant de reprendre le projet.**
-> L'objectif immédiat n'est plus l'extraction/recompilation générale : le projet produit déjà un exécutable Windows natif qui entre profondément dans le boot. Le blocage actuel est un **softlock de synchronisation / message queues après la 61e tâche graphique**.
+Dernière mise à jour : **27 septembre 2026, 04:22 Europe/Paris**, session locale Codex/Work.
 
----
+## Point de reprise actuel
 
-## 1. Objectif du projet
+**Le blocage à 61 listes graphiques est dépassé dans la version locale d’intégration.** Ne pas repartir de ce diagnostic sans vérifier quelle version est exécutée.
 
-Portage natif Windows x64 de **Pokémon Stadium 2 FR / NP3F**, dans l'esprit de Ship of Harkinian / recompilation statique moderne :
+- L’exécutable Windows natif compile et entre dans le jeu.
+- Les fragments de l’introduction et leurs modèles sont chargés.
+- Un second blocage vers 710 listes graphiques a été identifié et corrigé : deux boucles attendant un compteur audio empêchaient le scheduler coopératif de traiter ses événements.
+- Un test de 40 secondes avec le RSP encore factice a terminé avec **1 140 listes graphiques achevées**, dernière liste vieille de 31 ms, et chargement du fragment de l’écran suivant.
+- Le vrai microcode audio NP3F et une sortie audio SDL ont ensuite été intégrés localement. Ce test avance jusqu’au chargement du module suivant, puis s’arrête sur **une tâche RSP type 4, ucode 0x80085390**, encore non prise en charge.
+- L’image visible, le son audible, les menus et un combat complet restent à valider. Les compteurs de rendu ne constituent pas à eux seuls une preuve de jouabilité.
 
+**Dernière erreur réelle :**
 ```text
-AeroStadium2.exe
-  -> code NP3F statiquement recompilé MIPS -> C/C++ -> x64
-  -> N64ModernRuntime
-  -> RT64
-  -> couche Aero (fenêtre, input, audio, config, etc.)
+[audio-rsp] Unsupported task type=4 ucode=80085390
+No registered RSP ucode for 4 (returned `nullptr`)
+Failed to execute task type: 4
 ```
 
-Important : le runtime reproduit toujours des sémantiques matérielles/N64 OS et RT64 traite le rendu N64. Ne pas présenter le résultat comme « zéro émulation » au sens absolu.
+## Où se trouve le travail
 
-ROM propriétaire non distribuée. La ROM FR légale locale attendue reste :
-
+Dossier de compilation/test autorisé par l’utilisateur :
 ```text
-baseroms/fr/baserom.z64
+C:\Users\dofus\Downloads\PokemonStadium2_FR_Windows_Next\pokestadiumgs-fr
 ```
 
-Hash NP3F runtime validé :
-
+Exécutable :
 ```text
-0x93AC31A17326F35B
+build/np3f/link-smoke-prebuilt-vs2022-x64/bin/AeroStadium2.exe
 ```
 
-Référence JP correcte si une comparaison redevient nécessaire :
-
+Ce dossier de téléchargements n’est pas un checkout Git. Les modifications sont préparées dans :
 ```text
-Pocket Monsters Stadium Kin Gin (Japan).n64
+C:\Users\dofus\.codex\.chatgpt-projects\g-p-6ab58e3c969481918cad038344c3d218\Aero-Stadium-2-integration
+```
+Branche locale : **codex/native-rt64-integration**, initialement créée depuis `5a476e82b141a640fe8770a384e3fc670aaba5a5`.
+
+**À cette mise à jour, les corrections décrites sont présentes localement mais pas encore publiées dans cette branche sur GitHub.** Un checkpoint de sources puis l’intégration des changements récents de main sont en cours. Ne pas croire qu’un téléchargement de main contient déjà ces corrections.
+
+Le dépôt distant main a été relu et récupéré jusqu’à `6f8870ebb77cff6383659e4446c8abe211c13b7a`. Il contient d’autres travaux récents (manette SDL, génération RSP audio, diagnostics des queues, scripts de build). Il faut les rapprocher du travail local sans écraser les corrections testées ni réintroduire le mauvais enregistrement des fragments.
+
+Un ancien checkout `Aero-Stadium-2-FR` sous le même miroir contient aussi des modifications antérieures non commitées : le préserver. Les fichiers `sources/` du miroir ChatGPT sont des références en lecture seule.
+
+## Corrections locales vérifiées
+
+### Fonctions, fragments et relocation
+
+- Générateur local `2026-09-26.1` : **11 047 fonctions**, **89 sections**, **217 unités C**.
+- Injection de **131 trampolines J/NOP** de fragments, dont la table d’exports du fragment 26.
+- **11 entrées de fonctions** restaurées à partir de plages vérifiées par SHA-256 : helpers audio assembleur, `guRotateRPY`, `osAiSetNextBuffer`.
+- **116 174 relocations** reconstruites dans 88 fragments à partir des tables présentes dans la ROM.
+- Adaptation du lecteur de symboles de N64Recomp pour les relocations vers une autre section.
+- L’enregistrement natif des fragments suit maintenant le registre du jeu : hooks `func_80002440` / `func_8000251C`. Un petit DMA de 0x1000 octets ne suffit pas à enregistrer un fragment entier ; c’était la cause d’un ancien appel vers du code périmé.
+- Le fragment 28 utilise **0x8FE00000** dans le catalogue et le YAML local.
+- Les modèles chargés dans le slot 239 contiennent un petit accesseur MIPS. Une traduction native n’accepte que son motif exact de sept instructions, avec contrôle des bornes et de la signature FRAGMENT.
+- Les quatre vérifications de cartouche gardent leurs comparaisons originales ; seules leurs lectures directes PI/ROM passent par le bridge hôte.
+
+Fichiers principaux :
+```text
+tools/recomp/generate_np3f_symbols.py
+tools/recomp/add_np3f_relocations.py
+tools/recomp/patch_n64recomp_symbols.py
+tools/recomp/test_native_adapters.py
+config/np3f_recomp_function_overrides.json
+recomp/np3f.toml
+cmake/np3f_generated_smoke/aero_platform.h
+cmake/np3f_generated_smoke/np3f_memory_compat.h
+cmake/np3f_link_smoke/np3f_register_overlays.cpp
+cmake/np3f_link_smoke/np3f_asset_entry.cpp
+cmake/np3f_link_smoke/np3f_asset_entry_test.cpp
 ```
 
----
+### Blocage de transition identifié et corrigé
 
-## 2. Environnement utilisateur / workflow à respecter
+Le relevé de piles natives a trouvé le thread du jeu dans :
+```text
+func_80035594 -> func_80065850 -> func_80065AB8 -> func_80065050
+```
+Deux attentes à `0x80035614` et `0x80035660` attendent l’évolution de `D_8009498C`, modifiée par le thread audio. Le moteur natif ne traite ses messages externes qu’aux points de coopération.
 
-- OS utilisateur : **Windows uniquement**.
-- Dossier local historique :
-  ```text
-  C:\Users\dofus\Downloads\PokemonStadium2_FR_Windows_Next\pokestadiumgs-fr
-  ```
-- Repo :
-  ```text
-  https://github.com/NeanSword/Aero-Stadium-2-FR
-  ```
-- Branche de travail : `main`.
-- L'utilisateur ne veut pas travailler avec des milliers de ZIP.
-- Préférer les modifications directes sur GitHub.
-- Ne demander une action Windows manuelle que lorsqu'un test local est réellement requis.
-- L'utilisateur n'utilise pas `git pull` localement : quand un fichier doit être récupéré manuellement, fournir un `Invoke-WebRequest` vers un commit épinglé.
-- Toujours vérifier le contenu/diff avant d'envoyer une commande de téléchargement.
+Les hooks appellent **yield_self_1ms via aero_poll_events**, sans modifier le compteur ni supprimer les tests de la ROM. La transition reprend. Aucun changement global de la sémantique NOBLOCK n’a été appliqué.
 
-### Discipline de modification
+### Audio, saisie et diagnostics actuels
 
-Avant de déclarer un fichier prêt :
+- Microcode audio local généré dans `generated/recomp/np3f/audio_rsp.cpp`, fonction `np3f_audio_rsp`.
+- Configuration : `recomp/np3f_audio.toml`, ROM 0x1060, taille 0x1000, IMEM 0x04001000.
+- Les 24 entrées indirectes viennent de ROM 0x87C20..0x87C50.
+- Callback RSP local : type 2 / ucode 0x80000460 accepté ; autre programme refusé explicitement. Le type 4 est le prochain travail.
+- `osAiSetNextBuffer` est identifié par signature et routé vers le runtime. Le bridge MMIO ajouté entre-temps sur main constitue une autre approche : éviter de cumuler deux soumissions du même buffer.
+- Sortie audio SDL stéréo, remise dans l’ordre des deux échantillons de chaque mot RDRAM ; ouverture à 48 kHz puis 32 kHz observée. Son audible non encore vérifié.
+- Clavier local ajouté au probe : Entrée=Start, X=A, C=B, Z=Z, Q/E=L/R, flèches=croix, WASD=stick, IJKL=boutons C. À tester et à intégrer avec la manette SDL ajoutée sur main.
+- Le test borné rapporte le nombre de listes **achevées** et l’âge de la dernière. Il sort avec code 24 si le rendu est arrêté depuis 5 secondes.
+- En cas d’arrêt, un relevé des piles natives des seuls threads invités aide à identifier la boucle ou l’attente.
+- Les dumps de modèles sont désormais optionnels via `AERO_DUMP_FRAGMENTS`. Ne jamais les publier.
 
-1. inspecter le fichier avant modification ;
-2. faire une modification ciblée ;
-3. inspecter le diff exact ;
-4. vérifier qu'aucune fonction existante n'a disparu accidentellement ;
-5. vérifier signatures, includes, références et dépendances ;
-6. vérifier le fichier réellement présent sur `main` ;
-7. pour les fichiers critiques fraîchement modifiés, préférer une URL raw épinglée au commit ;
-8. ne supprimer une fonction que volontairement et après vérification qu'elle n'est plus utilisée.
+## Résultats de tests et logs locaux
 
----
+Sous le dossier de téléchargements :
 
-## 3. État global déjà validé
+| Dossier dans build/np3f/probes/ | Résultat |
+| --- | --- |
+| 20260926-225514-707 | 20 s, introduction active ; ancien critère de réussite trop faible |
+| 20260926-225712-641 | 120 s, arrêt vers 710 listes ; ancien test retournait à tort 0 |
+| 20260926-230057-864 | Nouveau test : code 24, 709 listes ; piles identifiant func_80035594 |
+| 20260926-230416-897 | Après coopération des deux boucles : 40 s, code 0, 1 140 listes, progression active |
+| 20260926-230848-205 | RSP audio réel + SDL : arrêt explicite sur RSP type 4 / 0x80085390 |
 
-### Extraction / symboles / recompilation
+Autres contrôles réussis :
+- CTest `asset_entry` : exactitude de l’accesseur, branche a0 non nulle, adresse basse signée, refus de motifs invalides et des adresses MMIO.
+- Quatre tests Python sans ROM : relocations entre sections, LO signé, HI absent, bornes de table.
+- Validation du YAML complet et du fixture corrigé : 88 fragments. Le catalogue signale encore 19 VRAM historiquement marquées « guessed » ; ne pas les présenter comme indépendamment prouvées par ce test.
+- Compilation MSVC de RT64, de la bibliothèque générée et de l’exécutable.
 
-Le pipeline NP3F n'est plus au stade expérimental initial.
+Logs de construction :
+```text
+build/CODEX_SYMBOLS.log
+build/CODEX_RELOCATED_RECOMP.log
+build/CODEX_RELOCATED_BUILD.log
+build/CODEX_RT64_CONFIGURE.log
+build/CODEX_RT64_BUILD.log
+build/CODEX_RSP_RECOMP.log
+```
 
-Validé :
+## Prochaine séquence de travail
 
-- layout Splat FR canonique dans `yamls/fr/splat.yaml` ;
-- 88/88 fragment headers reconnus ;
-- 335/335 boundaries supportées par anchors + 15 boundaries explicitement vérifiées ;
-- symbol map générée :
-  - **10 911 fonctions** ;
-  - **89 sections contenant des fonctions** ;
-  - 24 rejets ;
-  - 283 fonctions libultra relocalisées ;
-- N64Recomp génère **214 unités `funcs_*.c`** ;
-- bibliothèque générée :
-  ```text
-  build\np3f\generated-smoke-vs2022-x64\lib\AeroNP3FGenerated.lib
-  ```
-- exécutable lié :
-  ```text
-  build\np3f\link-smoke-prebuilt-vs2022-x64\bin\AeroStadium2.exe
-  ```
+1. Publier un checkpoint des sources locales, puis rapprocher les changements de main. Préserver les deux historiques.
+2. Identifier la tâche **RSP type 4 à 0x80085390** depuis les octets et l’OSTask locaux (probablement un autre microcode de traitement ; ne pas supposer sa fonction sans vérification). La recompiler ou fournir une implémentation fidèle, sans la remplacer par un succès factice.
+3. Relancer le test borné de 40–60 secondes, puis vérifier l’écran et les commandes.
+4. Corriger le PAL réel : le probe force osTvType=PAL mais le runtime local utilise encore une cadence VI 60 Hz et ignore les facteurs de osViSetXScale/YScale. Le renderer annonçant 50 Hz ne suffit pas.
+5. Vérifier l’audio et le premier parcours interactif. Traiter les nouvelles erreurs à partir des logs.
 
-### Dépendances épinglées
+## Commandes et dépendances utiles
 
+Les builds/tests se font **dans le dossier de téléchargements**. Utiliser le Python `.venv/Scripts/python.exe` et le CMake installé sous `C:/Program Files/CMake/bin` si PATH ne le trouve pas.
+
+```powershell
+# Test borné de l'exécutable construit :
+.\windows\test_np3f_boot.ps1 -Seconds 40
+
+# Après changement de hooks, avec les symboles ET relocations déjà préparés :
+.\.local\bin\N64Recomp-native.exe recomp/np3f.toml
+# Reconfigurer explicitement CMake avant de reconstruire la bibliothèque :
+# un premier build MSBuild après changement du nombre d'unités peut omettre
+# les nouveaux fichiers même si CMake vient de régénérer le projet.
+
+# Microcode audio local :
+.\.local\bin\RSPRecomp.exe recomp/np3f_audio.toml
+```
+
+`windows/prepare_np3f_native_code.ps1` est en préparation dans le checkout d’intégration ; il reste à le compléter et à le tester avant de le déclarer utilisable.
+
+Dépendances locales :
+```text
+.local/n64recomp/src
+.local/n64recomp/build-vs2022-x64
+.local/n64modernruntime/src
+.local/n64modernruntime/build-vs2022-x64
+.local/rt64/src
+```
+Versions de référence :
 ```text
 N64ModernRuntime cdf5abbd5026fef5c364c676e4667c45e42b6863
 N64Recomp        ffb39cdad1da5de07eaaa48bd1db4a89a7986771
 RT64             23cab603c4f9f4a8b369b38e036f1aa484603878
 ```
 
-### Runtime natif déjà prouvé
+ROM locale uniquement : `baseroms/fr/baserom.z64`. Hash runtime `0x93AC31A17326F35B`.
+Ne publier ni ROM, ni code généré depuis la ROM, ni dumps mémoire.
 
-Le runtime :
+## Historique précédent
 
-- valide et charge la ROM NP3F ;
-- crée la fenêtre Win32 ;
-- initialise RT64 D3D12 ;
-- force le PAL ;
-- démarre le code recompilé ;
-- crée/exécute les threads N64 principaux ;
-- reçoit les tâches RSP ;
-- envoie les display lists à RT64 ;
-- charge/enregistre des overlays dynamiques ;
-- détecte la manette SDL2 ;
-- ferme proprement dans le dernier état testé.
+Le journal avant cette mise à jour est conservé intégralement dans [la révision 6f8870e](https://github.com/NeanSword/Aero-Stadium-2-FR/blob/6f8870ebb77cff6383659e4446c8abe211c13b7a/LastProgressLogs.md).
 
----
+Il documente les diagnostics de main autour de GFX #61, SP/DP, queues 0x801221E0 / 0x80122A6C / 0x80122AD4, et les ajouts audio/input/shutdown. Ces observations restent utiles pour leur version précise, mais **ne décrivent plus le point de blocage de l’intégration locale testée ci-dessus**.
 
-## 4. RSP audio NP3F : maintenant réel
-
-Le microcode audio français a été extrait/généré via RSPRecomp.
-
-Fichier généré local attendu :
-
-```text
-generated/rsp/np3f/aspMain_np3f.cpp
-```
-
-Signature validée :
-
-```text
-ucode ROM       0x1060
-ucode size      0x1000
-IMEM            0x04001000
-ucode_data      0x80087010
-ucode_data ROM  0x87C10
-ucode_data_size 0x2DF
-```
-
-24 handlers indirects distincts ont été validés.
-
-Le runtime sélectionne `aspMain_np3f` uniquement pour la signature audio NP3F exacte.
-
-Logs attendus/observés :
-
-```text
-[runtime-probe] Microcode audio NP3F reel actif: aspMain_np3f.
-```
-
-Conclusion :
-
-- le faux `RspExitReason::Broke` audio n'est plus utilisé pour cette tâche ;
-- **le RSP audio n'était pas la cause principale du softlock**.
-
-Commits d'intégration importants :
-
-```text
-5af1337b0c02c2b235ec6562791f152b9212b1fe  CMake: compile aspMain_np3f si présent
-c4530b053fcc5f346741c9555542ff08c3293f9d  runtime: dispatch audio NP3F réel
-```
-
----
-
-## 5. AI direct MMIO : bridge ajouté
-
-Pokémon Stadium 2 écrit directement dans les registres AI au lieu de s'appuyer uniquement sur `osAiSetNextBuffer`.
-
-Fonction NP3F vérifiée :
-
-```text
-func_80019550
-```
-
-Sites exacts :
-
-```text
-0x8001958C  lecture AI_STATUS
-0x800195AC  écriture AI_DRAM_ADDR
-0x800195B4  écriture AI_LEN
-0x800195B8  hook placé juste après les deux écritures
-```
-
-Le hook appelle :
-
-```cpp
-aerostadium2_np3f_ai_submit_buffer(
-    rdram,
-    (uint32_t)ctx->r10,
-    (uint32_t)ctx->r5
-);
-```
-
-Puis :
-
-```cpp
-ultramodern::queue_audio_buffer(...)
-```
-
-Des buffers de 2496 octets sont réellement soumis.
-
-Commit logique principal :
-
-```text
-0256bc90b3dc3fdf1362516f012d7f8dc25beedb
-```
-
-Conclusion :
-
-- le chemin AI n'est plus totalement factice ;
-- **le bridge AI n'a pas supprimé le softlock** ;
-- le callback hôte `queue_samples()` du probe reste encore minimal/vide, donc le backend audio complet n'est pas fini, mais ce n'est pas le verrou de boot actuellement identifié.
-
----
-
-## 6. Shutdown Windows : use-after-free RDRAM identifié et contourné
-
-Ancien crash à la fermeture :
-
-- un thread recompilé continuait brièvement ;
-- `recomp::start()` n'avait pas complètement terminé ;
-- N64ModernRuntime libérait le RDRAM ;
-- `func_80035594` accédait ensuite à une zone devenue `MEM_FREE`.
-
-Cause validée : **shutdown use-after-free du RDRAM**.
-
-Workaround Windows actuel :
-
-- le bootstrap patch le runtime épinglé pour **ne pas `VirtualFree` le RDRAM** pendant cette fermeture mono-session ;
-- Windows récupère la mémoire à la fin du processus.
-
-Ce n'est pas une solution générale à un futur restart in-process.
-
-Commit :
-
-```text
-26901c08e8e5a68e0620c5bf759a9a2e489f9198
-```
-
-Le dernier runtime test se ferme proprement.
-
----
-
-## 7. Instrumentation runtime actuellement présente
-
-Le bootstrap N64ModernRuntime contient actuellement de nombreuses traces diagnostiques temporaires :
-
-```text
-[mq-ext-fail]
-[mq-event-reg]
-[mq-block-recv]
-[mq-wake-recv]
-[mq-noblock-full]
-[mq-vi-reg]
-[gfx-submit]
-[rcp-produce] SP
-[rcp-produce] DP
-```
-
-Version bootstrap au dernier état :
-
-```text
-2026-09-27.7
-```
-
-Commit bootstrap important :
-
-```text
-b2caa8101496a078e3103fdd9e594be5f550eb44
-```
-
-Le probe possède aussi :
-
-- snapshot threads à 3 s ;
-- snapshot threads à 6 s ;
-- snapshot ciblé de plusieurs `OSMesgQueue`.
-
-Dernier commit avant ce document :
-
-```text
-d3b6247e95e56f497d8ce35f33833df6cc2ffec1
-runtime: snapshot suspicious NP3F message queues at softlock
-```
-
----
-
-## 8. État exact du softlock — DERNIER RUN
-
-### 8.1 Graphique / RCP
-
-Le dernier run corrige une conclusion d'un run précédent :
-
-- `gfx-submit #61` **existe** ;
-- `SP #184` est produit pour cette phase ;
-- `DP #61` **est produit** ;
-- aucune `gfx-submit #62` n'a été observée ensuite ;
-- RT64 reste ensuite bloqué à **61 display lists** alors que les scanouts continuent.
-
-Séquence observée :
-
-```text
-[gfx-submit] #60
-[rcp-produce] SP #181
-[rcp-produce] DP #60
-...
-[gfx-submit] #61
-[rcp-produce] SP #184
-[rcp-produce] DP #61
-...
-[rt64-progress] screens=300  lists=61
-[rt64-progress] screens=600  lists=61
-[rt64-progress] screens=900  lists=61
-[rt64-progress] screens=1200 lists=61
-[rt64-progress] screens=1500 lists=61
-[rt64-progress] screens=1800 lists=61
-```
-
-**Conclusion actuelle :**
-
-RT64 ne semble pas perdre la completion DP de la dernière tâche graphique connue. Le jeu/scheduler cesse de produire la tâche graphique suivante après que #61 a été complétée.
-
-### 8.2 Queue scheduler RCP
-
-```text
-0x800CDA30
-```
-
-Enregistrée pour :
-
-```text
-VI      msg 0x66
-SP done msg 0x64
-DP done msg 0x65
-PRENMI  msg 0x68
-```
-
-À 3 s ET 6 s :
-
-```text
-valid=0
-count=16
-blocked_recv=0x800CD040  (thread id=3)
-blocked_send=0
-```
-
-Donc le scheduler `id=3` finit bloqué sur une queue RCP vide.
-
-### 8.3 Queue thread RSP / loader id=20
-
-```text
-0x800D047C
-```
-
-À 3 s ET 6 s :
-
-```text
-valid=0
-count=16
-blocked_recv=0x800CE190  (thread id=20)
-blocked_send=0
-```
-
-### 8.4 Trois petites queues suspectes
-
-#### 0x801221E0 — id4-mailbox
-
-À 3 s et 6 s :
-
-```text
-valid=1
-count=1
-head=0x00000000
-blocked_recv=0
-blocked_send=0
-```
-
-Donc queue pleine et **aucun consommateur actuellement bloqué dessus**.
-
-Le thread `id=4` tente ensuite de nombreux :
-
-```text
-osSendMesg(..., OS_MESG_NOBLOCK)
-```
-
-vers cette queue, avec des valeurs croissantes.
-
-Nombre de rejets observés dans le dernier stderr :
-
-```text
-65
-```
-
-#### 0x80122A6C — reply-A6C
-
-À 3 s et 6 s :
-
-```text
-valid=1
-count=1
-head=0x444F4E45  ("DONE")
-blocked_recv=0
-blocked_send=0
-```
-
-Nombre de nouveaux `DONE` NOBLOCK rejetés observés :
-
-```text
-32
-```
-
-Envoyeur observé :
-
-```text
-thread id=3 / scheduler
-```
-
-#### 0x80122AD4 — reply-AD4
-
-À 3 s et 6 s :
-
-```text
-valid=1
-count=1
-head=0x444F4E45  ("DONE")
-blocked_recv=0
-blocked_send=0
-```
-
-Nombre de nouveaux `DONE` NOBLOCK rejetés observés :
-
-```text
-31
-```
-
-Envoyeur observé :
-
-```text
-thread id=3 / scheduler
-```
-
-### 8.5 Conclusion la plus importante du dernier run
-
-Les deux reply queues contiennent déjà un ancien `DONE` à 3 s et le contiennent toujours à 6 s.
-
-Cela suggère davantage :
-
-> **le consommateur de ces reply queues ne les vide plus**
-
-que :
-
-> « le dernier DONE envoyé a simplement été perdu ».
-
-Ne pas transformer aveuglément tous les `OS_MESG_NOBLOCK` en envois forcés avant d'avoir identifié le propriétaire/consommateur de ces queues.
-
----
-
-## 9. Hypothèses déjà écartées ou fortement affaiblies
-
-Ne pas repartir de zéro sur ces pistes.
-
-### Écarté comme cause principale
-
-- extraction NP3F invalide ;
-- génération N64Recomp globalement cassée ;
-- link Windows impossible ;
-- absence de fenêtre/RT64 ;
-- faux RSP audio comme verrou principal ;
-- absence de soumission AI comme verrou principal ;
-- absence de SP completion de la dernière GFX ;
-- absence de DP completion de la dernière GFX ;
-- simple drop d'un événement RCP **externe** dû à une queue pleine : les diagnostics `[mq-ext-fail]` n'ont pas révélé ce scénario sur les runs concernés.
-
-### Toujours possible / à distinguer
-
-- logique de handshake interne avec `OSMesgQueue` de profondeur 1 ;
-- consommateur qui cesse d'appeler `osRecvMesg` ;
-- ordre de scheduling coopératif différent du hardware ;
-- send NOBLOCK attendu mais non consommé assez vite ;
-- corruption ou réutilisation d'une structure/queue ;
-- étape de boot qui attend un autre thread avant de produire GFX #62.
-
----
-
-## 10. Parallèle utile avec pokemonStadiumGSRecomp
-
-Repo de référence étudié :
-
-```text
-michiiik/pokemonStadiumGSRecomp
-```
-
-Cette référence a documenté des problèmes de boot Stadium 2 autour :
-
-- des `OSMesgQueue` ;
-- des reply queues ;
-- des `DONE` ;
-- des envois NOBLOCK sur queue temporairement pleine ;
-- d'une chaîne de boot décrite comme :
-  ```text
-  t3 -> t5 -> t6 -> t10 -> t7
-  ```
-- de completions RCP fiables vs événements coalescibles.
-
-Mais **ne pas recopier mécaniquement leurs adresses US/JP ni leurs hacks**. Les adresses NP3F doivent être vérifiées localement.
-
-Leur code actuel conserve d'ailleurs la sémantique NOBLOCK de `osSendMesg` : il logue les drops mais ne transforme pas automatiquement tous les NOBLOCK en BLOCK.
-
----
-
-## 11. PROCHAINE ÉTAPE RECOMMANDÉE
-
-Priorité : **identifier qui crée et surtout qui consomme les queues**
-`0x801221E0`, `0x80122A6C`, `0x80122AD4`.
-
-### Étape A — instrumentation ciblée `osCreateMesgQueue`
-
-Logger uniquement quand `mq` vaut une des trois adresses :
-
-```text
-0x801221E0
-0x80122A6C
-0x80122AD4
-```
-
-À enregistrer :
-
-- thread courant / id ;
-- adresse queue ;
-- adresse buffer ;
-- capacité ;
-- moment de création.
-
-But : identifier leur propriétaire initial.
-
-### Étape B — instrumentation ciblée des RECEIVES
-
-Tracer tous les `osRecvMesg` sur ces trois queues, pas seulement les blocages.
-
-Pour chaque receive :
-
-```text
-avant: validCount / first / head
-thread id / thread addr
-flags BLOCK ou NOBLOCK
-après: validCount / message reçu
-```
-
-But principal :
-
-> savoir quel thread a consommé ces queues auparavant, puis à quel moment il cesse de le faire.
-
-### Étape C — corréler au dernier GFX #61
-
-Ajouter si nécessaire un compteur/horodatage logique commun afin de savoir :
-
-- dernier receive sur A6C ;
-- dernier receive sur AD4 ;
-- dernier receive sur 221E0 ;
-- `gfx-submit #61` ;
-- `DP #61` ;
-- moment exact où les trois queues deviennent durablement pleines.
-
-### Étape D — seulement ensuite décider d'un correctif
-
-Selon le résultat :
-
-1. **consommateur bloqué sur mauvaise queue**  
-   → chercher le handshake précédent / message manquant ;
-
-2. **consommateur jamais réveillé alors qu'un message est présent**  
-   → problème scheduler / blocked_on_recv / wakeup ;
-
-3. **consommateur ne fait simplement plus de recv**  
-   → remonter sa logique de boot / attente précédente ;
-
-4. **structure queue corrompue/réutilisée**  
-   → placer un watch/tripwire sur les champs de la queue ;
-
-5. **ordre coopératif différent du hardware et NOBLOCK réellement critique**  
-   → expérimenter un correctif extrêmement ciblé, jamais global, sur la queue/callsite prouvée.
-
----
-
-## 12. Commandes de test selon le type de modification
-
-### Si seul `np3f_runtime_probe.cpp` change
-
-Pas de bootstrap, pas de N64Recomp.
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\build_np3f_link_smoke.ps1 -SkipRun
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\run_np3f_runtime_probe.ps1
-```
-
-### Si le bootstrap N64ModernRuntime / ultramodern change
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\bootstrap_n64modernruntime.ps1
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\build_np3f_link_smoke.ps1 -SkipRun
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\run_np3f_runtime_probe.ps1
-```
-
-### Si `recomp/np3f.toml` ou un hook N64Recomp change
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\run_np3f_recomp_prepare.ps1 -SkipExtract
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\build_np3f_generated_smoke.ps1
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\build_np3f_link_smoke.ps1 -SkipRun
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\windows\run_np3f_runtime_probe.ps1
-```
-
-Le runner N64Recomp et le bootstrap runtime possèdent des heartbeats/progressions visibles pour éviter les longues phases silencieuses.
-
----
-
-## 13. Fichiers clés à lire avant de modifier
-
-```text
-recomp/np3f.toml
-cmake/np3f_generated_smoke/np3f_memory_compat.h
-cmake/np3f_link_smoke/CMakeLists.txt
-cmake/np3f_link_smoke/main.cpp
-cmake/np3f_link_smoke/np3f_runtime_probe.cpp
-cmake/np3f_link_smoke/np3f_runtime_compat.cpp
-cmake/np3f_link_smoke/np3f_register_overlays.cpp
-cmake/np3f_link_smoke/np3f_rt64_renderer.cpp
-cmake/np3f_link_smoke/np3f_sdl_input.cpp
-
-windows/bootstrap_n64modernruntime.ps1
-windows/run_np3f_recomp_prepare.ps1
-windows/build_np3f_generated_smoke.ps1
-windows/build_np3f_link_smoke.ps1
-windows/run_np3f_runtime_probe.ps1
-windows/build_np3f_rsp_audio.ps1
-```
-
-Docs utiles :
-
-```text
-README.md
-windows/README.md
-recomp/README.md
-docs/DEVELOPMENT_STATUS.md
-docs/NATIVE_RUNTIME_ARCHITECTURE.md
-docs/DEPENDENCIES.md
-PORTING_PLAN.md
-```
-
----
-
-## 14. Commits jalons utiles
-
-```text
-588c71a206b672e42155f0237672d218e1b2fd71  cleanup/docs bridge obsolète
-4eadf802c73c9767f5265f419c589a7d27289b5a  documentation état/architecture
-a2bb91a6c8bd7df0e10e5e69e4209b38b5247bb4  diagnostic func_80035594
-a3915e0e1e5df5b65f0fac7b96a3aa0386380a43  shutdown/crash lifecycle instrumentation
-675496939a054a4b0338b7d6c8ca1d38e8bbe8f5  build link -SkipRun
-26901c08e8e5a68e0620c5bf759a9a2e489f9198  Windows RDRAM lifetime workaround
-5af1337b0c02c2b235ec6562791f152b9212b1fe  compile RSP audio généré
-c4530b053fcc5f346741c9555542ff08c3293f9d  dispatch RSP audio NP3F
-0256bc90b3dc3fdf1362516f012d7f8dc25beedb  AI bridge + recomp config/runner
-b2caa8101496a078e3103fdd9e594be5f550eb44  diagnostics RCP/NOBLOCK bootstrap .7
-d3b6247e95e56f497d8ce35f33833df6cc2ffec1  snapshots queues suspectes
-```
-
----
-
-## 15. Résumé ultra-court pour reprise immédiate
-
-Si tu ne lis qu'une section, lis celle-ci :
-
-```text
-- AeroStadium2.exe compile et link.
-- ROM NP3F FR validée.
-- RT64 fonctionne et présente des scanouts.
-- RSP audio FR réel aspMain_np3f fonctionne.
-- AI direct MMIO est bridgé.
-- GFX #61 est soumise.
-- SP/DP completion de GFX #61 est produite.
-- Aucune GFX #62 ensuite.
-- Scheduler id=3 finit bloqué sur 0x800CDA30 vide.
-- id20 finit bloqué sur 0x800D047C vide.
-- 0x801221E0 reste pleine avec head=0.
-- 0x80122A6C reste pleine avec "DONE".
-- 0x80122AD4 reste pleine avec "DONE".
-- Ces trois états sont identiques à 3 s et 6 s.
-- Nombre de NOBLOCK full observés : 65 / 32 / 31.
-- Ne PAS forcer tous les NOBLOCK.
-- Prochaine étape : instrumenter osCreateMesgQueue + osRecvMesg UNIQUEMENT
-  pour 0x801221E0 / 0x80122A6C / 0x80122AD4 afin d'identifier leurs consommateurs.
-```
-
----
-
-## 16. Règle de mise à jour de ce fichier
-
-Après chaque jalon significatif :
-
-1. remplacer la section **État exact du softlock — DERNIER RUN** par les résultats les plus récents ;
-2. déplacer les hypothèses invalidées vers **Hypothèses déjà écartées** ;
-3. actualiser **PROCHAINE ÉTAPE RECOMMANDÉE** ;
-4. ajouter les nouveaux commits jalons ;
-5. conserver les faits vérifiés des anciens jalons sans réécrire l'historique de manière ambiguë.
-
-Le but de ce fichier est d'empêcher Work/Codex/ChatGPT de repartir à l'aveugle ou de répéter des diagnostics déjà effectués.
+À chaque progrès notable, actualiser ce fichier avec : version exacte, modification, résultat observé, logs, défaut restant et prochaine action. Distinguer systématiquement « testé localement », « publié sur une branche » et « intégré à main ».
