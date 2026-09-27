@@ -10,8 +10,41 @@ $LogDir = Join-Path $RepoRoot 'build/np3f/logs'
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 function Invoke-Step([string]$Name, [string]$Program, [string[]]$Arguments) {
     $Log = Join-Path $LogDir ($Name + '.log')
-    & $Program @Arguments *> $Log
-    if ($LASTEXITCODE -ne 0) { Get-Content $Log -Tail 35; throw "Failed: $Name ($LASTEXITCODE)" }
+    $StdoutLog = Join-Path $LogDir ($Name + '.stdout.log')
+    $StderrLog = Join-Path $LogDir ($Name + '.stderr.log')
+
+    Remove-Item -LiteralPath $Log,$StdoutLog,$StderrLog -Force -ErrorAction SilentlyContinue
+
+    # Windows PowerShell 5.1 converts native stderr into ErrorRecord objects.
+    # unittest writes its normal progress dots to stderr, so with the script's
+    # global ErrorActionPreference=Stop the old "*>" redirection aborted a
+    # successful Python test run as NativeCommandError. Keep stdout/stderr
+    # separate while the native process runs and trust its real exit code.
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $Program @Arguments 1> $StdoutLog 2> $StderrLog
+        $ExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
+
+    @(
+        "=== stdout ==="
+        if (Test-Path -LiteralPath $StdoutLog) { Get-Content -LiteralPath $StdoutLog }
+        ""
+        "=== stderr ==="
+        if (Test-Path -LiteralPath $StderrLog) { Get-Content -LiteralPath $StderrLog }
+        ""
+        "=== exit code: $ExitCode ==="
+    ) | Set-Content -LiteralPath $Log -Encoding UTF8
+
+    if ($ExitCode -ne 0) {
+        Get-Content -LiteralPath $Log -Tail 50
+        throw "Failed: $Name ($ExitCode)"
+    }
+
     Write-Host "$Name : OK"
 }
 Push-Location $RepoRoot
