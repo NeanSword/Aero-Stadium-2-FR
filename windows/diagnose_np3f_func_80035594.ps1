@@ -77,7 +77,7 @@ $Report.Add("=== Obsolete Aero hook references in generated output ===")
 foreach ($Hook in @("aero_poll_events", "aero_cartridge_read_u32", "aero_lookup_asset")) {
     $HookHits = @(Get-ChildItem -LiteralPath $GeneratedDir -Recurse -File | Select-String -Pattern $Hook -SimpleMatch)
     if ($HookHits.Count -eq 0) {
-        $Report.Add("$Hook: none")
+        $Report.Add("${Hook}: none")
     } else {
         foreach ($Hit in $HookHits) {
             $Report.Add(("{0}: {1}:{2}: {3}" -f $Hook, $Hit.Path, $Hit.LineNumber, $Hit.Line.Trim()))
