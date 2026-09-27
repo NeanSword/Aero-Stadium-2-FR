@@ -1,7 +1,7 @@
 param()
 
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "2026-09-27.1"
+$RunnerVersion = "2026-09-27.2"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RomPath = Join-Path $RepoRoot "baseroms\fr\baserom.z64"
 $GeneratorPath = Join-Path $RepoRoot "tools\recomp\generate_np3f_rsp_audio.py"
@@ -36,7 +36,13 @@ $GeneratorArgs = @(
     "--output-cpp", $OutputCpp,
     "--output-report", $ReportPath
 )
-if ($Python.Name -like "py*") { $GeneratorArgs = @("-3") + $GeneratorArgs }
+$PythonExecutableName = [System.IO.Path]::GetFileNameWithoutExtension($Python.Source)
+$UsePyLauncher = $PythonExecutableName -ieq "py"
+if ($UsePyLauncher) {
+    $GeneratorArgs = @("-3") + $GeneratorArgs
+}
+Write-Host "Python executable: $($Python.Source)"
+Write-Host "Python launcher mode: $UsePyLauncher"
 
 Write-Host "[1/3] Validating NP3F ROM and generating config..."
 & $Python.Source @GeneratorArgs
