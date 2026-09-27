@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$BootstrapVersion = "2026-09-25.6"
+$BootstrapVersion = "2026-09-27.1"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LocalRoot = Join-Path $RepoRoot ".local\n64modernruntime"
@@ -200,6 +200,64 @@ set(CMAKE_C_EXTENSIONS OFF)
     Write-Host "Applied CMake C17 compatibility patch: librecomp"
 }
 
+# N64ModernRuntime currently releases its virtual RDRAM reservation after
+# joining the game-start/event/cleanup/save threads. NP3F creates additional
+# host threads through osCreateThread; on shutdown, some of those threads can
+# still be executing recompiled code after the cleaner exits. Releasing RDRAM
+# at that point produces a deterministic use-after-free during process exit.
+#
+# Aero-Stadium-2-FR is currently a single-session Windows executable. Keep the
+# RDRAM reservation alive until process termination, where Windows reclaims it
+# automatically. Do not apply this workaround silently to an unexpected
+# upstream source revision.
+$RuntimeRecompCpp = Join-Path $SourceDir "librecomp\src\recomp.cpp"
+if (-not (Test-Path -LiteralPath $RuntimeRecompCpp -PathType Leaf)) {
+    throw "Runtime source file not found: $RuntimeRecompCpp"
+}
+
+$RuntimeRecompText = Get-Content -LiteralPath $RuntimeRecompCpp -Raw
+$ShutdownPatchMarker = "// Aero-Stadium-2-FR Windows shutdown RDRAM lifetime patch 2026-09-27.1"
+$OriginalWindowsFreeBlock = @"
+#ifdef _WIN32
+    // VirtualFree returns zero on failure.
+    free_failed = (VirtualFree(rdram, 0, MEM_RELEASE) == 0);
+#else
+"@
+$PatchedWindowsFreeBlock = @"
+#ifdef _WIN32
+    $ShutdownPatchMarker
+    // Game-created host threads can still execute briefly after quit().
+    // Keep RDRAM valid until the process exits instead of releasing it here.
+    free_failed = false;
+#else
+"@
+
+if ($RuntimeRecompText.Contains($ShutdownPatchMarker)) {
+    if (-not $RuntimeRecompText.Contains($PatchedWindowsFreeBlock)) {
+        throw "N64ModernRuntime shutdown patch marker exists, but the patched block does not match the expected content."
+    }
+    Write-Host "Windows shutdown RDRAM lifetime patch already applied."
+}
+elseif ($RuntimeRecompText.Contains($OriginalWindowsFreeBlock)) {
+    $Occurrences = ([regex]::Matches(
+        $RuntimeRecompText,
+        [regex]::Escape($OriginalWindowsFreeBlock)
+    )).Count
+    if ($Occurrences -ne 1) {
+        throw "Expected exactly one Windows RDRAM release block in $RuntimeRecompCpp, found $Occurrences."
+    }
+
+    $RuntimeRecompText = $RuntimeRecompText.Replace(
+        $OriginalWindowsFreeBlock,
+        $PatchedWindowsFreeBlock
+    )
+    Set-Content -LiteralPath $RuntimeRecompCpp -Value $RuntimeRecompText -Encoding UTF8
+    Write-Host "Applied Windows shutdown RDRAM lifetime patch: librecomp"
+}
+else {
+    throw "Could not find the expected N64ModernRuntime Windows RDRAM release block. Refusing to patch an unexpected source revision."
+}
+
 if ($Force -and (Test-Path -LiteralPath $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
@@ -340,6 +398,7 @@ $Versions = @{
     xxhash = "680bf463fa1ca0461b9a7c2dab7556e1f54cf4cf"
     miniz = "8573fd7cd6f49b262a0ccc447f3c6acfc415e556"
     o1heap = "a124b850791db2a33f7354d2b0aa7da821cef6f5"
+    aero_windows_shutdown_rdram_patch = "2026-09-27.1"
 }
 
 $Versions | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LocalRoot "versions.json") -Encoding UTF8
