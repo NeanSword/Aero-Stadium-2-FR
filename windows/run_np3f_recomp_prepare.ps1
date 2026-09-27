@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RunnerVersion = "2026-09-27.5"
+$RunnerVersion = "2026-09-27.6"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecompExe = Join-Path $RepoRoot ".local\bin\N64Recomp.exe"
@@ -240,8 +240,33 @@ Remove-Item -LiteralPath $StdoutLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $StderrLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $Log -Force -ErrorAction SilentlyContinue
 
-$Process = Start-Process -FilePath $RecompExe -ArgumentList @($Config) -WorkingDirectory $RepoRoot -NoNewWindow -Wait -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+$Process = Start-Process -FilePath $RecompExe -ArgumentList @($Config) -WorkingDirectory $RepoRoot -NoNewWindow -PassThru -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+$RecompStartedAt = Get-Date
+$LastRecompHeartbeat = Get-Date
+Write-Host ("[N64Recomp] Demarre. PID={0}" -f $Process.Id) -ForegroundColor DarkGray
+
+while (-not $Process.HasExited) {
+    Start-Sleep -Milliseconds 500
+    if (((Get-Date) - $LastRecompHeartbeat).TotalSeconds -ge 10) {
+        $Elapsed = [int]((Get-Date) - $RecompStartedAt).TotalSeconds
+        Write-Host (
+            "[N64Recomp] Toujours en cours... PID={0} duree={1}s" -f
+            $Process.Id,
+            $Elapsed
+        ) -ForegroundColor DarkGray
+        $LastRecompHeartbeat = Get-Date
+    }
+}
+
+$Process.WaitForExit()
 $RecompExit = $Process.ExitCode
+$RecompElapsed = [int]((Get-Date) - $RecompStartedAt).TotalSeconds
+Write-Host (
+    "[N64Recomp] Termine. PID={0} duree={1}s exit={2}" -f
+    $Process.Id,
+    $RecompElapsed,
+    $RecompExit
+) -ForegroundColor DarkGray
 
 $StdoutLines = @()
 $StderrLines = @()
