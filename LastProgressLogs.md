@@ -85,6 +85,58 @@ checkpoint/stable-runtime-180s-2026-09-27
 
 **Prochaine phase :** capturer les textures RT64 utilisées par l'écran titre, les glyphes, le HUD et les textures 2D/3D importantes avec `dump_textures=true`, puis construire un vrai texture pack HD NP3F. L'objectif est d'améliorer les détails source réels, pas seulement de les afficher à plus haute résolution.
 
+### Dump RT64 analysé — écran titre cartographié pour remplacements HD
+
+Le ZIP `NP3F_texture_dumps.zip` contient 11 269 entrées, correspondant à 2 817 textures RT64 uniques avec leurs métadonnées/raw dumps.
+
+L'écran titre NP3F a été reconstruit et cartographié précisément :
+
+```text
+Fond titre        320x240  = 300 tuiles RGBA16 de 16x16
+Logo Stadium 2    376x196  = 49 bandes RGBA16 de 376x4
+Mentions légales  416x64   = 8 bandes IA8 de 416x8
+APPUYER SUR START 200x20   = hash 8ddd84322afffbe2
+Dolby Surround     88x34   = hash f59608edae6d8d5a
+Expansion Pak     216x18   = hash 811653c2eab64947
+```
+
+Le fond 320x240 reconstitué est bien l'image statique de l'écran titre avec le groupe de Pokémon ; le logo et les textes ont également été reconstitués séparément.
+
+Un générateur de pack RT64 HD a été ajouté sur `feature/graphics-quality` :
+
+```text
+tools/graphics/build_np3f_title_pack_from_dump.py
+```
+
+Il lit directement le ZIP de dump, découvre automatiquement les hashes RT64 hashVersion 5 à partir de l'ancre `dd04fe928a08d2c1`, découpe des images maîtres HD et génère les PNG de remplacement + `rt64.json`.
+
+Validation locale du générateur avec les masters 1x reconstitués :
+
+```text
+Background textures: 300
+Logo textures: 49
+Legal strips: 8
+RT64 entries: 357
+```
+
+HEAD branche graphique après intégration :
+
+```text
+feature/graphics-quality
+feae0b9e037f05e21f26a551bfd72786decad692
+```
+
+Le checkpoint graphique stable reste inchangé :
+
+```text
+checkpoint/graphics-1440p-stable-180s-2026-09-27
+181c38e63247b8deae48d96ddd49fbf54a63e5f6
+```
+
+Documentation : `docs/HD_TITLE_TEXTURE_PACK.md`.
+
+**Prochaine phase :** produire les images maîtres HD (fond 1920x1440, logo 2256x1176, textes/UI à 6x), générer le pack RT64 via l'outil, puis tester le remplacement in-game. Ensuite répéter le même travail de cartographie pour les menus, HUD, sprites et textures 3D importantes.
+
 ## Dernière avancée — baseline runtime stable 180 s, ancien crash overlay supprimé
 
 **Sources publiées : branche `codex/native-rt64-integration` à `8c537b748578ea2f600c74e669946965886262a7`.** Ce head contient le checkpoint `e2221be441b5b55008fc74f5283541a7cbafaf42`, puis le hook coopératif partagé de fin de tâche et son test ROM-free. Main reçoit le journal ; les corrections de code restent sur la branche d'intégration.
