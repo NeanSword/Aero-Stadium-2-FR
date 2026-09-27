@@ -2,6 +2,22 @@
 
 Dernière mise à jour : **28 septembre 2026, chantier textures**.
 
+## Dernière décision — fond titre, 28 septembre 2026
+
+**Interface exclusivement : l'utilisateur a répondu « Non, continuer uniquement l’interface » à la demande d'exception runtime.** Le blocage combat 0x80263890 reste volontairement non corrigé.
+
+Le fond titre source 320×240 a été reconstruit (300 tuiles RGBA16 vérifiées). L'utilisateur demande un master 1920×1440, son intégration et un essai visible de 120 s. Après un refus du service de génération d'image, il autorise explicitement le traitement local fidèle.
+
+- **v1** : nettoyage léger + Lanczos, intégré ; gain jugé invisible par l'utilisateur. Le probe `20260928-002502-503` est interrompu par l'arrêt combat préexistant, donc ne valide pas 120 s.
+- **v2** : Real-ESRGAN x4plus-anime puis Lanczos vers 1920×1440 ; 300 PNG 96×96 et réassemblage pixel-identique validés. Remplacement observé sur une capture du jeu en 2560×1440. **Rejet artistique explicite : « l'upscale est bien, mais déforme énormément les pokémons ». Ne pas réactiver cette version.**
+- Le probe v2 `20260928-004437-183` demandait 120 s mais a reçu une fermeture vers 31 s (stdout du 00:44:37 au 00:45:08), exit 0, aucun résultat de fin chronométrée. **Ne pas le déclarer validé 120 s.**
+- Le 28 septembre, après ce retour, `graphics.ini` est restauré depuis `graphics.ini.before-title-background-v2-20260928` : pack **v1** à nouveau actif. La v2 et ses preuves restent conservées localement, sans publication de l'artwork.
+- Un essai de restauration contrainte v3 respecte presque exactement les valeurs source lors de la réduction mais conserve trop de flou/aliasing : **prévisualisation seulement, non intégrée**. Une contrainte numérique ne prouve pas la fidélité artistique.
+
+Assets locaux : `build/np3f/graphics-workbench/title-background/` (v1, `neural-v2/`, `rt64-title-background-v2/`). Le miroir de travail contient aussi `constrained-v3/` et les outils de restauration en cours. Recherche d'un master original HD : aucun trouvé exploitable à ce stade ; ne pas remplacer par une autre composition.
+
+Exécutable toujours inchangé : `AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9`. Le runtime, les checkpoints et le code du renderer restent gelés. **Prochaine étape : comparer une méthode d'agrandissement plus conservatrice ; montrer un aperçu fidèle avant de remplacer à nouveau le fond. Aucun résultat HD n'est accepté à ce stade.**
+
 ## Reprise prioritaire — chantier textures, 28 septembre 2026
 
 La charte remise par l'utilisateur dans `Downloads/LastProgressLogs.md` est désormais conservée dans [docs/GRAPHICS_1440P_CHARTER.md](https://github.com/NeanSword/Aero-Stadium-2-FR/blob/feature/graphics-quality/docs/GRAPHICS_1440P_CHARTER.md). **Runtime gelé ; phase graphique exclusivement.** Les anciennes « prochaines actions » runtime ci-dessous sont historiques, pas des consignes actives.
@@ -11,7 +27,7 @@ Branche `feature/graphics-quality`, commit **`717fd137a85f5f559bdbdd61db15c09b65
 
 Les branches de retour `checkpoint/stable-runtime-180s-2026-09-27` (`8c537b748578ea2f600c74e669946965886262a7`) et `checkpoint/graphics-1440p-stable-180s-2026-09-27` (`181c38e63247b8deae48d96ddd49fbf54a63e5f6`) restent inchangées.
 
-Exécutable local conservé : SHA-256 **`AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9`**, construit le 27 septembre à 22:00. Le fichier `build/rt64-test-userdata/graphics.ini` est inchangé (SHA-256 `415ada1c8b9d104e5477ebf5833b1419d6262e3ceb5587a144da0012eeff02cb`).
+Exécutable local conservé : SHA-256 **`AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9`**, construit le 27 septembre à 22:00. Au checkpoint catalogue, le fichier `build/rt64-test-userdata/graphics.ini` était inchangé (SHA-256 `415ada1c8b9d104e5477ebf5833b1419d6262e3ceb5587a144da0012eeff02cb`). Son intégration titre ultérieure est décrite en tête de journal.
 
 ### Catalogue reproductible terminé
 Archive retrouvée dans :
@@ -61,7 +77,7 @@ Le test avec les quatre pilotes rencontre le **même arrêt** avant combat. Pas 
 Logs copiés dans `build/np3f/graphics-workbench/` :
 `baseline-visible.stdout.log`, `baseline-visible.stderr.log`, `pilot-1440p.stdout.log`, `pilot-1440p.stderr.log`.
 
-Aucune correction runtime appliquée, conformément à la charte. **Une question est en attente auprès de l'utilisateur : autoriser une exception limitée pour corriger cet arrêt, ou continuer seulement l'interface. Ne pas présumer de sa réponse.**
+Aucune correction runtime appliquée, conformément à la charte. **Réponse reçue : « Non, continuer uniquement l’interface ». Aucune exception runtime autorisée.**
 
 La préparation de référence est également conservée dans le miroir local :
 `C:\Users\dofus\.codex\.chatgpt-projects\g-p-6ab58e3c969481918cad038344c3d218\graphics-workbench`.
