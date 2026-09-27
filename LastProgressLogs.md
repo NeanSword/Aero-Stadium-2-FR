@@ -2,7 +2,59 @@
 
 Dernière mise à jour : **28 septembre 2026, chantier textures**.
 
-## Dernière décision — fond titre, 28 septembre 2026
+## État actuel — fond Johto et logo AeroStadium 2 intégrés, 28 septembre 2026
+
+L'utilisateur a choisi une **illustration originale pour donner une identité au portage**, uniquement avec des Pokémon de deuxième génération, puis un **logo « AeroStadium 2 » dans le style de l'ancien et de qualité comparable au nouveau fond**. Cette décision remplace la recherche d'un upscale fidèle pour cet écran seulement. Runtime toujours gelé ; aucune exception combat autorisée.
+
+### Résultat créé et installé
+
+Deux créations réalisées avec l'outil imagegen intégré :
+- Fond original Johto : Germignon, Héricendre, Kaiminus, Pharamp, Scarhino, Mentali, Noctali, Lugia et Ho-Oh. Source générée 1448×1086, export sRGB opaque **1920×1440**.
+- Logo original : AERO doré/bleu, STADIUM rouge en relief et 2 sur médaillon métallique. Source générée 1737×905 RGBA, export transparent **2256×1176** avec interpolation alpha prémultipliée et RGB nul dans les pixels totalement transparents.
+
+Le service a bien produit ces deux nouvelles créations ; le refus d'un ancien essai d'édition n'est pas leur statut. Les dimensions exportées ne sont pas les résolutions natives du service.
+
+**Pack actif :** `build/np3f/graphics-workbench/rt64-title-aerostadium-v1/`, pointé par `build/rt64-test-userdata/graphics.ini` (1440p, MSAA4, 4:3, plein écran, dump désactivé).
+
+349 hashes uniques : **300 tuiles de fond 96×96 et 49 bandes de logo 2256×24**. Réassemblages pixel-identiques aux deux masters, alpha inclus. Les captures en jeu prouvent le nouveau fond et le logo AeroStadium 2 avec transparence.
+
+### Raccords corrigés par configuration du pack
+
+La comparaison master/capture montre que `defaultShift: "half"` causait des discontinuités du fond (œil de Kaiminus, contours de Germignon). Le test A/B avec **`defaultShift: "none"`** supprime ces décalages visibles. Le pack final fond+logo utilise `none`. **Aucun code renderer/runtime modifié.** Ne pas généraliser ce réglage aux autres assets sans test. Une partie des déformations observées en jeu venait donc du réglage de raccord, en plus du rendu artistique rejeté de l'upscale v2.
+
+### Sources publiées et reprise locale
+
+Branche `feature/graphics-quality`, commit **`c9bd4538a662f4abe75a198cf6c6cc643ddb44b7`**. Publication expressément autorisée par l'utilisateur après la demande du contrôle automatique. Six fichiers : trois outils d'export/découpage, une documentation et deux prompts. Aucun artwork, ROM, dump, modèle neuronal ou binaire publié.
+
+Documentation : [TITLE_AEROSTADIUM_ORIGINAL.md](https://github.com/NeanSword/Aero-Stadium-2-FR/blob/feature/graphics-quality/docs/TITLE_AEROSTADIUM_ORIGINAL.md).
+Prompts exacts : `docs/TITLE_JOHTO_ORIGINAL_PROMPT.txt` et `docs/TITLE_AEROSTADIUM_LOGO_PROMPT.txt`.
+
+Assets conservés dans le vrai projet local `C:\\Users\\dofus\\Downloads\\PokemonStadium2_FR_Windows_Next\\pokestadiumgs-fr` :
+
+```text
+build/np3f/graphics-workbench/title-background/johto-original-v1/title-background-1920x1440.png
+build/np3f/graphics-workbench/title-logo/aerostadium-v1/aerostadium-2-logo-2256x1176.png
+build/np3f/graphics-workbench/title-logo/aerostadium-v1/in-game-aerostadium-1440p.png
+build/np3f/graphics-workbench/rt64-title-aerostadium-v1/rt64.json
+build/np3f/graphics-workbench/rt64-title-aerostadium-v1/build-manifest.json
+build/np3f/graphics-workbench/rt64-title-aerostadium-v1/validation.json
+```
+
+Masters SHA-256 : fond `2fbcdb58e76def3121fb725791a53aec636bb441d18dc7a5457f7e5e4518a0a2`, logo `f23e0e0309cbfe4a2f28f3832ed1d86519819936264f7d573cd374a1794b4323`.
+
+### Tests : visibilité validée, durée complète non validée
+
+- `20260928-005257-712` : fond original, 120 s demandées, arrêt combat préexistant vers 101 s sur `0x80263890` ; exit -1073740791.
+- `20260928-005554-147` : comparaison des raccords `none`, 30 s demandées, fermeture demandée après environ 14,77 s ; exit 0.
+- `20260928-005953-090` : fond+logo final, 120 s demandées, fermeture demandée après environ 20,37 s ; exit 0. Capture complète conservée. **Ne pas annoncer 120 s réussies.**
+
+Exécutable inchangé : **`AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9`** ; pas de rebuild. Les deux checkpoints stables restent intacts. Retour avant logo : `graphics.ini.before-title-aerostadium-v1-20260928` ; retour avant fond Johto : `graphics.ini.before-title-johto-original-v1-20260928` ; ces sauvegardes sont à côté de `graphics.ini`.
+
+**Suite possible :** recueillir le retour artistique sur l'écran original, puis poursuivre les textes/UI identifiés. Ne pas relancer les upscales rejetés comme s'ils étaient acceptés ; ne pas ouvrir un chantier runtime. Un essai continu de 120 s reste à faire si nécessaire, sans fermeture anticipée ni transition vers le combat bloqué.
+
+---
+
+## Historique — essais d'upscale abandonnés pour cet écran
 
 **Interface exclusivement : l'utilisateur a répondu « Non, continuer uniquement l’interface » à la demande d'exception runtime.** Le blocage combat 0x80263890 reste volontairement non corrigé.
 
