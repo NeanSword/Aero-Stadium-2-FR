@@ -32,6 +32,9 @@ std::atomic_uint32_t g_created_thread_count = 0;
 std::atomic_bool g_entrypoint_started = false;
 std::atomic_bool g_entrypoint_returned = false;
 std::atomic<uint8_t*> g_rdram = nullptr;
+std::atomic_bool g_shutdown_requested = false;
+std::atomic_bool g_quit_called = false;
+std::atomic_bool g_recomp_start_returned = false;
 
 struct MapSymbol {
     uint64_t address = 0;
@@ -184,6 +187,42 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
             static_cast<unsigned long long>(rdram_base)
         );
 
+        std::fprintf(
+            stderr,
+            "[win-crash] phase shutdown_requested=%s quit_called=%s recomp_start_returned=%s\n",
+            g_shutdown_requested.load() ? "oui" : "non",
+            g_quit_called.load() ? "oui" : "non",
+            g_recomp_start_returned.load() ? "oui" : "non"
+        );
+
+#ifdef _WIN32
+        MEMORY_BASIC_INFORMATION memory_info{};
+        const SIZE_T query_size = VirtualQuery(
+            reinterpret_cast<const void*>(target),
+            &memory_info,
+            sizeof(memory_info)
+        );
+        if (query_size == sizeof(memory_info)) {
+            std::fprintf(
+                stderr,
+                "[win-crash] virtual_query state=0x%lX protect=0x%lX type=0x%lX alloc_base=%p base=%p region=0x%llX\n",
+                memory_info.State,
+                memory_info.Protect,
+                memory_info.Type,
+                memory_info.AllocationBase,
+                memory_info.BaseAddress,
+                static_cast<unsigned long long>(memory_info.RegionSize)
+            );
+        }
+        else {
+            std::fprintf(
+                stderr,
+                "[win-crash] virtual_query failed error=%lu\n",
+                GetLastError()
+            );
+        }
+#endif
+
         if (rdram_base != 0 && target >= rdram_base) {
             const uint64_t offset = static_cast<uint64_t>(target - rdram_base);
             if (offset <= 0xFFFFFFFFULL) {
@@ -220,6 +259,9 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CLOSE:
+            g_shutdown_requested.store(true);
+            std::fprintf(stderr, "[runtime-probe] WM_CLOSE recu; arret demande.\n");
+            std::fflush(stderr);
             DestroyWindow(hwnd);
             return 0;
         case WM_DESTROY:
@@ -280,7 +322,10 @@ void update_gfx(void*) {
     MSG msg{};
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
-            std::printf("[runtime-probe] Fermeture demandee.\n");
+            g_shutdown_requested.store(true);
+            g_quit_called.store(true);
+            std::printf("[runtime-probe] Fermeture demandee; appel ultramodern::quit().\n");
+            std::fflush(stdout);
             ultramodern::quit();
             return;
         }
@@ -573,6 +618,9 @@ void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
 }
 
 void run_np3f_runtime_probe(const std::u8string& game_id) {
+    g_shutdown_requested.store(false);
+    g_quit_called.store(false);
+    g_recomp_start_returned.store(false);
     load_probe_map_symbols();
     SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
     const recomp::rsp::callbacks_t rsp_callbacks{
@@ -644,6 +692,9 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
 
     recomp::start_game(game_id, "");
     recomp::start(cfg);
+    g_recomp_start_returned.store(true);
+    std::fprintf(stderr, "[runtime-probe] recomp::start() a retourne.\n");
+    std::fflush(stderr);
     aerostadium2::input::shutdown_controllers();
     std::printf("[runtime-probe] N64ModernRuntime termine.\n");
 }
