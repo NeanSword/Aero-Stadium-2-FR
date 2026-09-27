@@ -603,6 +603,43 @@ void print_thread_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
     );
 }
 
+void print_queue_snapshot(uint8_t* rdram, uint32_t vaddr, const char* label) {
+    const PTR(OSMesgQueue) addr = static_cast<int32_t>(vaddr);
+    const OSMesgQueue* mq = TO_PTR(OSMesgQueue, addr);
+
+    uint32_t head_message = 0xFFFFFFFFu;
+    const uint32_t msg_buffer = static_cast<uint32_t>(mq->msg);
+    const bool sane =
+        mq->msgCount > 0 &&
+        mq->msgCount <= 64 &&
+        mq->validCount >= 0 &&
+        mq->validCount <= mq->msgCount &&
+        mq->first >= 0 &&
+        mq->first < mq->msgCount &&
+        msg_buffer >= 0x80000000u &&
+        msg_buffer < 0x80800000u;
+
+    if (sane && mq->validCount > 0) {
+        const OSMesg* messages = TO_PTR(OSMesg, mq->msg);
+        head_message = static_cast<uint32_t>(messages[mq->first]);
+    }
+
+    std::printf(
+        "[queue-snapshot] %-12s addr=0x%08X valid=%d first=%d count=%d "
+        "msgbuf=0x%08X head=0x%08X blocked_recv=0x%08X blocked_send=0x%08X sane=%s\n",
+        label,
+        vaddr,
+        mq->validCount,
+        mq->first,
+        mq->msgCount,
+        msg_buffer,
+        head_message,
+        static_cast<uint32_t>(mq->blocked_on_recv),
+        static_cast<uint32_t>(mq->blocked_on_send),
+        sane ? "oui" : "non"
+    );
+}
+
 void print_boot_snapshot_at(const char* moment) {
     uint8_t* rdram = g_rdram.load();
     if (rdram == nullptr) {
@@ -618,6 +655,13 @@ void print_boot_snapshot_at(const char* moment) {
     print_thread_snapshot(rdram, 0x80122B40u, "thread/id4");
     print_thread_snapshot(rdram, 0x800CDA80u, "thread/id21");
     print_thread_snapshot(rdram, 0x800A8850u, "game/id6");
+
+    std::printf("[queue-snapshot] OSMesgQueue NP3F %s:\n", moment);
+    print_queue_snapshot(rdram, 0x800CDA30u, "sched-rcp");
+    print_queue_snapshot(rdram, 0x800D047Cu, "rsp/id20");
+    print_queue_snapshot(rdram, 0x801221E0u, "id4-mailbox");
+    print_queue_snapshot(rdram, 0x80122A6Cu, "reply-A6C");
+    print_queue_snapshot(rdram, 0x80122AD4u, "reply-AD4");
 }
 
 void print_boot_snapshot() {
