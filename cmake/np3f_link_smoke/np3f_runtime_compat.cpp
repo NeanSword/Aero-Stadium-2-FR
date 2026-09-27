@@ -8,11 +8,12 @@
 #include "librecomp/helpers.hpp"
 #include "librecomp/overlays.hpp"
 #include <ultramodern/ultra64.h>
+#include <ultramodern/ultramodern.hpp>
 
 // Aero-Stadium-2-FR runtime compatibility layer version.
 // Keep this visible in source so Windows incremental builds clearly rebuild
 // the translation unit when DMA bridge compatibility changes.
-static constexpr const char* kAeroRuntimeCompatVersion = "2026-09-27.1";
+static constexpr const char* kAeroRuntimeCompatVersion = "2026-09-27.2";
 
 namespace {
 
@@ -126,6 +127,34 @@ void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint
 // "no accessory present". NP3F's libultra build also references these
 // lower-level variants, so preserve the same behavior for the link/runtime
 // compatibility layer. Transfer Pak support will replace these stubs later.
+extern "C" void aerostadium2_np3f_ai_submit_buffer(
+    uint8_t* rdram,
+    uint32_t guest_addr,
+    uint32_t byte_count
+) {
+    if (byte_count == 0u) {
+        return;
+    }
+
+    static uint32_t logged_submissions = 0;
+    if (logged_submissions < 8u) {
+        std::fprintf(
+            stderr,
+            "[ai-bridge] submit guest=0x%08X bytes=%u\n",
+            guest_addr,
+            byte_count
+        );
+        std::fflush(stderr);
+        ++logged_submissions;
+    }
+
+    ultramodern::queue_audio_buffer(
+        rdram,
+        static_cast<PTR(int16_t)>(guest_addr),
+        byte_count
+    );
+}
+
 extern "C" void __osContRamRead_recomp(uint8_t*, recomp_context* ctx) {
     return_no_pack(ctx);
 }
