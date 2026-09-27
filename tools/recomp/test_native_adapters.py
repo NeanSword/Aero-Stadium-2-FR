@@ -21,10 +21,12 @@ class FragmentExportTests(unittest.TestCase):
 class RecompHookTests(unittest.TestCase):
     def test_menu_image_decoder_wait_yields_at_verified_callsite(self):
         config = Path("recomp/np3f.toml").read_text(encoding="utf-8")
-        expected = """[[patches.hook]]
-func = "func_80003AC0"
-before_vram = 0x80003BB0
-text = "aero_poll_events(rdram);""""
+        expected = "\n".join([
+            "[[patches.hook]]",
+            'func = "func_80003AC0"',
+            "before_vram = 0x80003BB0",
+            'text = "aero_poll_events(rdram);"',
+        ])
         self.assertEqual(config.count(expected), 1)
 
 
