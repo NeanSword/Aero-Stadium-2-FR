@@ -76,6 +76,18 @@ add_executable(AeroStadium2
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_sdl_input.cpp"
 )
 
+set(NP3F_RSP_AUDIO_CPP "${CMAKE_CURRENT_SOURCE_DIR}/../../generated/rsp/np3f/aspMain_np3f.cpp")
+if(EXISTS "${NP3F_RSP_AUDIO_CPP}")
+    target_sources(AeroStadium2 PRIVATE "${NP3F_RSP_AUDIO_CPP}")
+    target_compile_definitions(AeroStadium2 PRIVATE AEROSTADIUM2_WITH_NP3F_RSP_AUDIO=1)
+    message(STATUS "NP3F audio RSP enabled: ${NP3F_RSP_AUDIO_CPP}")
+else()
+    message(WARNING
+        "NP3F audio RSP source not found; keeping diagnostic RSP fallback. "
+        "Run windows/build_np3f_rsp_audio.ps1 first."
+    )
+endif()
+
 target_include_directories(AeroStadium2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${NP3F_GENERATED_DIR}"
