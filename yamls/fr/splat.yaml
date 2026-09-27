@@ -736,7 +736,7 @@ segments:
     vram: 0x81000000
     subsegments:
     - [0x15E8E0, textbin, fragments/26/fragment26_header]
-    - [0x15E900, textbin, fragments/26/fragment26_unk_table] # what is this?
+    - [0x15E900, textbin, fragments/26/fragment26_unk_table] # Export trampolines: J/NOP pairs.
     - [0x15EA60, c,       fragments/26/fragment26_15EA30]
     - [0x1620C0, c,       fragments/26/fragment26_162090]
     - [0x162300, c,       fragments/26/fragment26_1622D0]
@@ -763,7 +763,7 @@ segments:
     type: code
     bss_size: 0x0
     start: 0x165EF0
-    vram: 0x80000000 # unk vram. not loaded
+    vram: 0x8FE00000 # Verified from NP3F header jump to 0x8FE00020.
     subsegments:
     - [0x165EF0, textbin, fragments/28/fragment28_header]
     - [0x165F10, c,       fragments/28/fragment28_code]
@@ -1035,7 +1035,7 @@ segments:
     - [0x22FD30, c,       fragments/45/fragment45_22FAD0]
     - [0x232710, c,       fragments/45/fragment45_2324B0]
     - [0x234B40, c,       fragments/45/fragment45_2348E0]
-    - [0x236440, data,    fragments/45/fragment45_data]
+    - [0x2365B0, data,    fragments/45/fragment45_data]
 
   - name: fragment46
     type: code
@@ -1357,7 +1357,7 @@ segments:
     subsegments:
     - [0x35E210, textbin, fragments/70/fragment70_header]
     - [0x35E230, c,       fragments/70/fragment70_code]
-    - [0x35E600, data,    fragments/70/fragment70_data]
+    - [0x35EA80, data,    fragments/70/fragment70_data]
 
   - name: fragment71
     type: code
@@ -1550,7 +1550,7 @@ segments:
     subsegments:
     - [0x432570, textbin, fragments/85/fragment85_header]
     - [0x432590, c,       fragments/85/fragment85_code]
-    - [0x4344F0, data,    fragments/85/fragment85_data]
+    - [0x434A50, data,    fragments/85/fragment85_data]
 
   - name: fragment86
     type: code

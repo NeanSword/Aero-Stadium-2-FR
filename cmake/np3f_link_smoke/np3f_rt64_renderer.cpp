@@ -5,6 +5,12 @@
 #include <cstdio>
 #include <memory>
 
+#if defined(_WIN32)
+#include <Windows.h>
+#include <objbase.h>
+#include <oleauto.h>
+#endif
+
 #ifndef HLSL_CPU
 #define HLSL_CPU
 #endif
@@ -119,6 +125,7 @@ public:
         RT64::ApplicationConfiguration app_config{};
         app_config.appId = "aerostadium2";
         app_config.useConfigurationFile = false;
+        app_config.detectDataPath = false;
 
         app_ = std::make_unique<RT64::Application>(core, app_config);
 
@@ -202,7 +209,6 @@ public:
                 task->t.data_size
             );
             std::fflush(stdout);
-            mark_rt64_display_list_seen();
         }
 
         app_->state->rsp->reset();
@@ -217,6 +223,10 @@ public:
             0,
             true
         );
+        mark_rt64_display_list_seen();
+        if (++completed_lists_ == 1) {
+            std::fprintf(stderr, "[rt64] First display list completed.\n");
+        }
     }
 
     void send_dummy_workload(uint32_t) override {}
@@ -240,6 +250,13 @@ public:
         }
 
         app_->updateScreen();
+        if (++screen_updates_ % 300 == 0) {
+            auto* vi = ultramodern::renderer::get_vi_regs();
+            std::fprintf(stderr,
+                "[rt64-progress] screens=%u lists=%u VI_ORIGIN=%08X VI_WIDTH=%u VI_STATUS=%08X\n",
+                screen_updates_, completed_lists_, vi->VI_ORIGIN_REG,
+                vi->VI_WIDTH_REG, vi->VI_STATUS_REG);
+        }
     }
 
     void shutdown() override {
@@ -261,6 +278,8 @@ public:
     }
 
 private:
+    uint32_t completed_lists_ = 0;
+    uint32_t screen_updates_ = 0;
     struct {
         uint8_t header[0x40]{};
         uint8_t dmem[0x1000]{};

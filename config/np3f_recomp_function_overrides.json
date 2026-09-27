@@ -1,0 +1,82 @@
+{
+  "ranges": [
+    {
+      "section": "text",
+      "start": "0x80019550",
+      "end": "0x800195c4",
+      "sha256": "6d6ed153acb4f715db0d0ca85426c08043664c1e6b0477be9973b161375b2be2",
+      "reason": "Game-linked osAiSetNextBuffer variant, including the N64 8 KiB DMA-boundary workaround. Bind the host audio queue instead of accessing AI MMIO.",
+      "functions": [
+        { "name": "osAiSetNextBuffer", "vram": "0x80019550", "size": "0x74" }
+      ]
+    },
+    {
+      "section": "text",
+      "start": "0x80021460",
+      "end": "0x80021a60",
+      "sha256": "79ca56d53b148896d908be76233b53301846c84dbdf7bebd90000a1f1c38ccfe",
+      "reason": "Handwritten audio helpers. Exclude two inline lookup tables; keep indirect callback entries and shared tail.",
+      "functions": [
+        {
+          "name": "func_80021460",
+          "vram": "0x80021460",
+          "size": "0xec"
+        },
+        {
+          "name": "func_80021554",
+          "vram": "0x80021554",
+          "size": "0xb4"
+        },
+        {
+          "name": "func_80021610",
+          "vram": "0x80021610",
+          "size": "0x1c4"
+        },
+        {
+          "name": "func_800217D4",
+          "vram": "0x800217d4",
+          "size": "0x154"
+        },
+        {
+          "name": "func_80021928",
+          "vram": "0x80021928",
+          "size": "0xa4"
+        },
+        {
+          "name": "func_800219CC",
+          "vram": "0x800219cc",
+          "size": "0x18"
+        },
+        {
+          "name": "func_800219E4",
+          "vram": "0x800219e4",
+          "size": "0x10"
+        },
+        {
+          "name": "func_800219F4",
+          "vram": "0x800219f4",
+          "size": "0x18"
+        },
+        {
+          "name": "func_80021A0C",
+          "vram": "0x80021a0c",
+          "size": "0x54"
+        }
+      ]
+    },
+    {
+      "section": "text",
+      "start": "0x8007d574",
+      "end": "0x8007d5b8",
+      "sha256": "b88a177cf27cda61acf0fac4feabac482193673717974e99abe822f135787429",
+      "reason": "Matrix wrapper omitted from upstream symbols; calls guRotateRPYF then guMtxF2L.",
+      "functions": [
+        {
+          "name": "guRotateRPY",
+          "vram": "0x8007d574",
+          "size": "0x44"
+        }
+      ]
+    }
+  ]
+}

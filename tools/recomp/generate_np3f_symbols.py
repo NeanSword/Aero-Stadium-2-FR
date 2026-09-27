@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import Counter
@@ -8,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2026-09-25.10"
+GENERATOR_VERSION = "2026-09-26.1"
 
 try:
     import yaml
@@ -634,6 +635,61 @@ def toml_quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+def apply_verified_function_ranges(rom, sections, funcs, metadata_path):
+    """Recover hand-written entrypoints without decoding embedded data as code."""
+    ranges = json.loads(metadata_path.read_text(encoding="utf-8"))["ranges"]
+    applied = []
+    for item in ranges:
+        section = sections[item["section"]]
+        start, end = parse_int(item["start"]), parse_int(item["end"])
+        offset = section.rom + start - section.vram
+        if not (section.vram <= start < end <= section.vram + section.size):
+            raise SystemExit("ERROR: verified function range outside section")
+        if hashlib.sha256(rom[offset:offset + end - start]).hexdigest() != item["sha256"]:
+            raise SystemExit(f"ERROR: NP3F signature mismatch at 0x{start:08X}")
+        funcs[:] = [f for f in funcs if not (f.section == section.name and start <= f.vram < end)]
+        for entry in item["functions"]:
+            addr, size = parse_int(entry["vram"]), parse_int(entry["size"])
+            if not (start <= addr < addr + size <= end) or addr % 4 or size % 4:
+                raise SystemExit("ERROR: invalid verified function extent")
+            funcs.append(Function(entry["name"], entry["name"], addr, size,
+                                  "verified-np3f:" + entry["name"], section.name))
+            applied.append({**entry, "section": section.name, "reason": item["reason"]})
+    return applied
+
+def inject_fragment_trampolines(rom, sections, funcs):
+    """Recover J/NOP fragment entries and the export jump table in fragment 26."""
+    injected = []
+    for section in sections.values():
+        if not section.name.startswith('fragment'):
+            continue
+        known = {f.vram for f in funcs if f.section == section.name}
+        if not known:
+            continue
+        first = min(known) - section.vram
+        table = int.from_bytes(rom[section.rom + 0x14:section.rom + 0x18], 'big')
+        candidates = {}
+        for offset in [0, *range(0x20, min(first, table), 8)]:
+            word = int.from_bytes(rom[section.rom + offset:section.rom + offset + 4], 'big')
+            delay = rom[section.rom + offset + 4:section.rom + offset + 8]
+            if word >> 26 == 2 and delay == b'\0' * 4:
+                candidates[section.vram + offset] = 0x80000000 | ((word << 2) & 0x0FFFFFFC)
+        # Accept only chains that terminate at an already identified function.
+        pending = dict(candidates)
+        while pending:
+            accepted = [addr for addr, target in pending.items() if target in known]
+            if not accepted:
+                break
+            for addr in accepted:
+                if addr not in known:
+                    name = f'func_{addr:08X}'
+                    funcs.append(Function(name, name, addr, 8, 'fragment-trampoline', section.name))
+                    injected.append(dict(section=section.name, vram=addr, target=pending[addr]))
+                    known.add(addr)
+                del pending[addr]
+    return injected
+
+
 def main() -> int:
     print(f"NP3F symbol generator version: {GENERATOR_VERSION}")
     parser = argparse.ArgumentParser()
@@ -641,6 +697,8 @@ def main() -> int:
     parser.add_argument("--asm-root", type=Path, default=Path("build/np3f/asm"))
     parser.add_argument("--output", type=Path, default=Path("build/np3f/recomp/np3f.syms.toml"))
     parser.add_argument("--report", type=Path, default=Path("build/np3f/analysis/recomp_symbols_report.json"))
+    parser.add_argument("--function-overrides", type=Path,
+                        default=Path("config/np3f_recomp_function_overrides.json"))
     parser.add_argument(
         "--libultra-symbols",
         type=Path,
@@ -911,6 +969,12 @@ def main() -> int:
         path for path in files_without_funcs if path not in merged_paths
     ]
 
+    verified_function_overrides = apply_verified_function_ranges(
+        rom_bytes, sections, valid, args.function_overrides)
+    fragment_trampolines = inject_fragment_trampolines(rom_bytes, sections, valid)
+    print(f'  verified function ranges: {len(verified_function_overrides)}')
+    print(f'  fragment trampolines: {len(fragment_trampolines)}')
+
     injected_leaf_jal_targets = inject_missing_leaf_jal_targets(
         rom_bytes,
         sections,
@@ -1002,6 +1066,8 @@ def main() -> int:
         "clipped_overlapping_functions": clipped,
         "verified_name_overrides": verified_name_overrides,
         "verified_size_overrides": verified_size_overrides,
+        "verified_function_ranges": verified_function_overrides,
+        "fragment_trampolines": fragment_trampolines,
         "hasm_vram_relocations": hasm_vram_relocations,
         "manual_functions_injected": manual_functions_injected,
         "relocated_libultra": {

@@ -176,8 +176,8 @@
     {
       "id": 28,
       "rom_start": "0x165EF0",
-      "vram": "0x80000000",
-      "confidence": "guessed"
+      "vram": "0x8FE00000",
+      "confidence": "established"
     },
     {
       "id": 29,

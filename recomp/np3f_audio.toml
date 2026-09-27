@@ -1,0 +1,14 @@
+# NP3F audio microcode: pre_main ROM 0x1060, loaded at IMEM 0x1000.
+# The 24 command entrypoints come from ucode_data ROM 0x87C20..0x87C50.
+text_offset = 0x1060
+text_size = 0x1000
+text_address = 0x04001000
+rom_file_path = "../baseroms/fr/baserom.z64"
+output_file_path = "../generated/recomp/np3f/audio_rsp.cpp"
+output_function_name = "np3f_audio_rsp"
+extra_indirect_branch_targets = [
+    0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514,
+    0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC,
+    0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C,
+    0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4,
+]

@@ -50,6 +50,7 @@ add_library(AeroNP3FGenerated STATIC
 )
 
 target_include_directories(AeroNP3FGenerated PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${NP3F_GENERATED_DIR}"
     "${N64RECOMP_INCLUDE_DIR}"
 )

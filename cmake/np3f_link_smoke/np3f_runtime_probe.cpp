@@ -11,6 +11,8 @@
 #include <vector>
 #include <cstdlib>
 #include <iterator>
+#include <mutex>
+#include <SDL.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -22,6 +24,7 @@
 #include "np3f_rt64_renderer.h"
 
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
+RspExitReason np3f_audio_rsp(uint8_t* rdram, uint32_t ucode_addr);
 
 namespace {
 
@@ -31,6 +34,15 @@ std::atomic_uint32_t g_created_thread_count = 0;
 std::atomic_bool g_entrypoint_started = false;
 std::atomic_bool g_entrypoint_returned = false;
 std::atomic<uint8_t*> g_rdram = nullptr;
+std::atomic_uint32_t g_completed_display_lists = 0;
+std::atomic<ULONGLONG> g_last_display_list_tick = 0;
+std::array<std::atomic<DWORD>, 16> g_guest_thread_ids{};
+std::atomic_uint16_t g_buttons = 0;
+std::atomic_uint32_t g_stick_keys = 0;
+std::mutex g_audio_mutex;
+SDL_AudioDeviceID g_audio_device = 0;
+std::atomic_uint64_t g_audio_samples = 0;
+std::atomic_uint32_t g_audio_peak = 0;
 
 struct MapSymbol {
     uint64_t address = 0;
@@ -139,6 +151,49 @@ void print_probe_map_symbol(uintptr_t exception_rva) {
     );
 }
 
+// Sample only this process's guest threads when a bounded probe stops making
+// progress. Resume each thread before formatting symbols or writing logs.
+void print_stalled_guest_stacks() {
+    const uintptr_t module = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    for (const auto& entry : g_guest_thread_ids) {
+        const DWORD id = entry.load();
+        if (!id) continue;
+        HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, id);
+        if (!thread) continue;
+        DWORD64 frames[48]{};
+        size_t count = 0;
+        if (SuspendThread(thread) != DWORD(-1)) {
+            CONTEXT context{};
+            context.ContextFlags = CONTEXT_FULL;
+            if (GetThreadContext(thread, &context)) {
+                while (context.Rip && count < std::size(frames)) {
+                    frames[count++] = context.Rip;
+                    DWORD64 image_base = 0;
+                    auto* function = RtlLookupFunctionEntry(context.Rip, &image_base, nullptr);
+                    if (function) {
+                        PVOID handler_data = nullptr;
+                        DWORD64 establisher = 0;
+                        RtlVirtualUnwind(UNW_FLAG_NHANDLER, image_base, context.Rip,
+                            function, &context, &handler_data, &establisher, nullptr);
+                    } else {
+                        SIZE_T bytes = 0;
+                        if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(context.Rsp),
+                            &context.Rip, sizeof(context.Rip), &bytes) || bytes != sizeof(context.Rip)) break;
+                        context.Rsp += sizeof(DWORD64);
+                    }
+                }
+            }
+            ResumeThread(thread);
+        }
+        CloseHandle(thread);
+        std::fprintf(stderr, "[guest-stack] host_thread=%lu frames=%zu\n", id, count);
+        for (size_t i = 0; i < count; ++i) {
+            if (frames[i] >= module && frames[i] - module < 0x10000000ULL)
+                print_probe_map_symbol(frames[i] - module);
+        }
+    }
+}
+
 
 LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
     if (info == nullptr || info->ExceptionRecord == nullptr) {
@@ -218,6 +273,40 @@ LONG WINAPI probe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {
 
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        case WM_KEYDOWN:
+        case WM_KEYUP: {
+            uint16_t mask = 0;
+            uint32_t stick = 0;
+            switch (wparam) {
+                case VK_RETURN: mask = 0x1000; break;
+                case 'X': mask = 0x8000; break;
+                case 'C': mask = 0x4000; break;
+                case 'Z': mask = 0x2000; break;
+                case 'Q': mask = 0x0020; break;
+                case 'E': mask = 0x0010; break;
+                case VK_UP: mask = 0x0800; break;
+                case VK_DOWN: mask = 0x0400; break;
+                case VK_LEFT: mask = 0x0200; break;
+                case VK_RIGHT: mask = 0x0100; break;
+                case 'I': mask = 0x0008; break;
+                case 'K': mask = 0x0004; break;
+                case 'J': mask = 0x0002; break;
+                case 'L': mask = 0x0001; break;
+                case 'W': stick = 1; break;
+                case 'S': stick = 2; break;
+                case 'A': stick = 4; break;
+                case 'D': stick = 8; break;
+            }
+            if (msg == WM_KEYDOWN) {
+                g_buttons.fetch_or(mask); g_stick_keys.fetch_or(stick);
+            } else {
+                g_buttons.fetch_and(uint16_t(~mask)); g_stick_keys.fetch_and(~stick);
+            }
+            return 0;
+        }
+        case WM_KILLFOCUS:
+            g_buttons.store(0); g_stick_keys.store(0);
+            return 0;
         case WM_CLOSE:
             DestroyWindow(hwnd);
             return 0;
@@ -346,10 +435,6 @@ std::unique_ptr<ultramodern::renderer::RendererContext> create_render_context(
 #endif
 }
 
-RspExitReason probe_rsp_ucode(uint8_t*, uint32_t) {
-    return RspExitReason::Broke;
-}
-
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
     if (!g_logged_rsp_task.exchange(true)) {
         std::printf(
@@ -358,37 +443,65 @@ RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
             task->t.ucode,
             task->t.ucode_data
         );
-        std::printf("[runtime-probe] RSP temporairement acquitte en mode diagnostic.\n");
+        std::printf("[audio-rsp] Executing recompiled NP3F audio microcode.\n");
     }
-    return probe_rsp_ucode;
+    if (task->t.type == 2 && uint32_t(task->t.ucode) == 0x80000460u) return np3f_audio_rsp;
+    std::fprintf(stderr, "[audio-rsp] Unsupported task type=%u ucode=%08X\n", task->t.type, task->t.ucode);
+    return nullptr;
 }
 
-void queue_samples(int16_t*, size_t) {}
+void queue_samples(int16_t* samples, size_t count) {
+    std::lock_guard lock(g_audio_mutex);
+    std::vector<int16_t> output(count);
+    uint32_t peak = 0;
+    // RDRAM stores each 32-bit word in host order, reversing its two samples.
+    for (size_t i = 0; i + 1 < count; i += 2) {
+        output[i] = samples[i + 1]; output[i + 1] = samples[i];
+        peak = (std::max)(peak, uint32_t((std::max)(std::abs(int(output[i])), std::abs(int(output[i + 1])))));
+    }
+    g_audio_samples.fetch_add(count);
+    g_audio_peak.store((std::max)(g_audio_peak.load(), peak));
+    if (g_audio_device && SDL_QueueAudio(g_audio_device, output.data(), Uint32(output.size() * sizeof(int16_t))) != 0)
+        std::fprintf(stderr, "[audio] Queue failed: %s\n", SDL_GetError());
+}
 
 size_t get_frames_remaining() {
-    return 0;
+    std::lock_guard lock(g_audio_mutex);
+    return g_audio_device ? SDL_GetQueuedAudioSize(g_audio_device) / (2 * sizeof(int16_t)) : 0;
 }
 
 void set_frequency(uint32_t frequency) {
-    static std::atomic_bool logged = false;
-    if (!logged.exchange(true)) {
-        std::printf("[runtime-probe] Frequence audio demandee: %u Hz\n", frequency);
+    std::lock_guard lock(g_audio_mutex);
+    if (g_audio_device) SDL_CloseAudioDevice(g_audio_device);
+    g_audio_device = 0;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+        std::fprintf(stderr, "[audio] SDL initialization failed: %s\n", SDL_GetError()); return;
     }
+    SDL_AudioSpec wanted{};
+    wanted.freq = int(frequency); wanted.format = AUDIO_S16SYS;
+    wanted.channels = 2; wanted.samples = 1024;
+    g_audio_device = SDL_OpenAudioDevice(nullptr, 0, &wanted, nullptr, 0);
+    if (!g_audio_device) {
+        std::fprintf(stderr, "[audio] Device unavailable: %s\n", SDL_GetError()); return;
+    }
+    SDL_PauseAudioDevice(g_audio_device, 0);
+    std::printf("[audio] Stereo device opened: %u Hz\n", frequency);
 }
 
 void poll_input() {}
 
-bool get_input(int, uint16_t* buttons, float* x, float* y) {
+bool get_input(int controller, uint16_t* buttons, float* x, float* y) {
+    const auto stick = controller == 0 ? g_stick_keys.load() : 0;
     if (buttons != nullptr) {
-        *buttons = 0;
+        *buttons = controller == 0 ? g_buttons.load() : 0;
     }
     if (x != nullptr) {
-        *x = 0.0f;
+        *x = float(bool(stick & 8)) - float(bool(stick & 4));
     }
     if (y != nullptr) {
-        *y = 0.0f;
+        *y = float(bool(stick & 1)) - float(bool(stick & 2));
     }
-    return true;
+    return controller == 0;
 }
 
 void set_rumble(int, bool) {}
@@ -523,11 +636,16 @@ void runtime_message_box(const char* msg) {
 
 namespace aerostadium2 {
 
+void set_overlay_rdram(uint8_t* rdram);
+
 void mark_rt64_display_list_seen() {
     g_logged_display_list.store(true);
+    g_completed_display_lists.fetch_add(1);
+    g_last_display_list_tick.store(GetTickCount64());
 }
 
 void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx) {
+    set_overlay_rdram(rdram);
     // IPL3 stores osTvType at virtual address 0x80000300, i.e. RDRAM offset 0x300.
     // Access the RDRAM offset directly here instead of feeding an unsigned KSEG0
     // address into MEM_W, which expects a sign-extended 64-bit N64 address.
@@ -566,6 +684,7 @@ void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx) {
 
 void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
     const uint32_t index = g_created_thread_count.fetch_add(1) + 1;
+    if (index <= g_guest_thread_ids.size()) g_guest_thread_ids[index - 1].store(GetCurrentThreadId());
 
     const PTR(OSThread) current_thread_addr = ultramodern::this_thread();
     OSThread* current_thread = nullptr;
@@ -599,7 +718,9 @@ void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx) {
     std::fflush(stdout);
 }
 
-void run_np3f_runtime_probe(const std::u8string& game_id) {
+void run_np3f_runtime_probe(const std::u8string& game_id, unsigned test_seconds) {
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
     load_probe_map_symbols();
     SetUnhandledExceptionFilter(probe_unhandled_exception_filter);
     const recomp::rsp::callbacks_t rsp_callbacks{
@@ -660,6 +781,23 @@ void run_np3f_runtime_probe(const std::u8string& game_id) {
         std::fflush(stdout);
     });
     boot_watchdog.detach();
+
+    if (test_seconds != 0) {
+        std::thread([test_seconds]() {
+            std::this_thread::sleep_for(std::chrono::seconds(test_seconds));
+            const auto completed = g_completed_display_lists.load();
+            const auto age = GetTickCount64() - g_last_display_list_tick.load();
+            const bool progressing = completed > 0 && age < 5000;
+            std::fprintf(stderr,
+                "[test-result] seconds=%u entrypoint=%d threads=%u rsp=%d displaylist=%d completed=%u age_ms=%llu progressing=%d\n",
+                test_seconds, g_entrypoint_started.load(), g_created_thread_count.load(),
+                g_logged_rsp_task.load(), g_logged_display_list.load(), completed, age, progressing);
+            if (!progressing) print_stalled_guest_stacks();
+            std::fprintf(stderr, "[audio-result] samples=%llu peak=%u\n", g_audio_samples.load(), g_audio_peak.load());
+            // A bounded diagnostic run is not a validation of gameplay/audio.
+            ExitProcess(progressing ? 0 : 24);
+        }).detach();
+    }
 
     recomp::start_game(game_id, "");
     recomp::start(cfg);

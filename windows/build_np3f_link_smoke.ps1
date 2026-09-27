@@ -1,4 +1,4 @@
-param([switch]$Clean)
+param([switch]$Clean, [switch]$SkipRun)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -97,6 +97,7 @@ if ($null -eq $Exe) { throw "Link reported success but AeroStadium2.exe was not 
 Write-Host ""
 Write-Host "First AeroStadium2.exe linked successfully."
 Write-Host "Executable: $($Exe.FullName)"
+if ($SkipRun) { exit 0 }
 Write-Host ""
 Write-Host "Running bootstrap executable..."
 & $Exe.FullName

@@ -68,6 +68,8 @@ foreach(runtime_lib IN LISTS N64MODERNRUNTIME_LIBS)
 endforeach()
 
 add_executable(AeroStadium2
+    "${NP3F_GENERATED_DIR}/audio_rsp.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/np3f_asset_entry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_runtime_compat.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/np3f_register_overlays.cpp"
@@ -76,10 +78,12 @@ add_executable(AeroStadium2
 )
 
 target_include_directories(AeroStadium2 PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../np3f_generated_smoke"
     "${NP3F_GENERATED_DIR}"
     "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/ultramodern/include"
     "${N64MODERNRUNTIME_SOURCE_DIR}/librecomp/include"
+    "${N64MODERNRUNTIME_SOURCE_DIR}/librecomp/include/librecomp"
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty"
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/concurrentqueue"
     "${N64MODERNRUNTIME_SOURCE_DIR}/thirdparty/o1heap"
@@ -104,6 +108,9 @@ target_link_libraries(AeroStadium2 PRIVATE
 )
 
 if(WIN32)
+    target_include_directories(AeroStadium2 PRIVATE
+        "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/include"
+    )
     target_link_directories(AeroStadium2 PRIVATE
         "${RT64_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64"
     )
@@ -156,3 +163,8 @@ set_target_properties(AeroStadium2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
 )
+
+enable_testing()
+add_executable(aero_asset_entry_test np3f_asset_entry.cpp np3f_asset_entry_test.cpp)
+target_include_directories(aero_asset_entry_test PRIVATE "${N64MODERNRUNTIME_SOURCE_DIR}/N64Recomp/include")
+add_test(NAME asset_entry COMMAND aero_asset_entry_test)

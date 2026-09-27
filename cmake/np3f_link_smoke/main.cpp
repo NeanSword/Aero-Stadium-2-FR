@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <cwchar>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -13,7 +14,7 @@
 
 namespace aerostadium2 {
 void register_np3f_overlays();
-void run_np3f_runtime_probe(const std::u8string& game_id);
+void run_np3f_runtime_probe(const std::u8string& game_id, unsigned test_seconds);
 void traced_np3f_entrypoint(uint8_t* rdram, recomp_context* ctx);
 void trace_np3f_thread_create(uint8_t* rdram, recomp_context* ctx);
 void trace_np3f_on_init(uint8_t* rdram, recomp_context* ctx);
@@ -137,8 +138,34 @@ bool ensure_np3f_rom_loaded() {
 
 } // namespace
 
-int main() {
-    const std::filesystem::path config_path = get_config_path();
+int wmain(int argc, wchar_t** argv) {
+    // Explicit paths keep automated probes independent of the user's saves.
+    std::filesystem::path config_path = get_config_path();
+    std::filesystem::path rom_path;
+    unsigned test_seconds = 0;
+    for (int i = 1; i < argc; ++i) {
+        const std::wstring option = argv[i];
+        if (i + 1 >= argc) {
+            std::fprintf(stderr, "Missing value for argument.\n");
+            return 2;
+        }
+        if (option == L"--rom") {
+            rom_path = argv[++i];
+        } else if (option == L"--data-dir") {
+            config_path = argv[++i];
+        } else if (option == L"--seconds") {
+            wchar_t* end = nullptr;
+            const long seconds = std::wcstol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != L'\0' || seconds < 1 || seconds > 300) {
+                std::fprintf(stderr, "--seconds must be between 1 and 300.\n");
+                return 2;
+            }
+            test_seconds = static_cast<unsigned>(seconds);
+        } else {
+            std::fprintf(stderr, "Unknown argument. Use --rom, --data-dir, --seconds.\n");
+            return 2;
+        }
+    }
     std::filesystem::create_directories(config_path);
 
     recomp::register_config_path(config_path);
@@ -172,13 +199,20 @@ int main() {
     std::printf("Nom ROM N64Recomp: %s\n", get_rom_name());
     std::printf("Dossier de donnees: %ls\n", config_path.c_str());
 
-    if (!ensure_np3f_rom_loaded()) {
-        return 0;
+    if (!rom_path.empty()) {
+        const auto result = recomp::select_rom(rom_path, kNp3fGameId);
+        if (result != recomp::RomValidationError::Good ||
+            !recomp::load_stored_rom(kNp3fGameId)) {
+            std::fprintf(stderr, "ROM validation/load failed: %d\n", static_cast<int>(result));
+            return 3;
+        }
+    } else if (!ensure_np3f_rom_loaded()) {
+        return 3;
     }
 
     std::printf("ROM NP3F chargee en memoire: OK\n");
     std::printf("Lancement du probe N64ModernRuntime. Fermez la fenetre Aero Stadium 2 pour quitter.\n");
 
-    aerostadium2::run_np3f_runtime_probe(kNp3fGameId);
+    aerostadium2::run_np3f_runtime_probe(kNp3fGameId, test_seconds);
     return 0;
 }

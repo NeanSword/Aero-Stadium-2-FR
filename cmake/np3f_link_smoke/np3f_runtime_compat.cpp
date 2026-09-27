@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <span>
+#include <cstdlib>
 
 #include "recomp.h"
 #include "librecomp/addresses.hpp"
@@ -8,6 +9,11 @@
 #include "librecomp/helpers.hpp"
 #include "librecomp/overlays.hpp"
 #include <ultramodern/ultra64.h>
+
+extern "C" void yield_self_1ms(uint8_t* rdram);
+extern "C" void aero_poll_events(uint8_t* rdram) {
+    yield_self_1ms(rdram);
+}
 
 namespace {
 
@@ -29,93 +35,20 @@ uint32_t read_rom_be32(std::span<const uint8_t> rom, uint32_t offset) {
         (static_cast<uint32_t>(rom[offset + 3]) << 0);
 }
 
-bool is_stadium_fragment_load(uint32_t rom_offset, uint32_t size, uint32_t* stub_word) {
-    // Header-only probes are commonly 0x18/0x20 bytes and are copied into
-    // scratch RDRAM before the real fragment DMA. Never register those as
-    // executable overlays.
-    if (size <= 0x20u) {
-        return false;
-    }
-
-    const std::span<const uint8_t> rom = recomp::get_rom();
-    if (rom_offset > rom.size() || rom.size() - rom_offset < 0x10u) {
-        return false;
-    }
-
-    const uint32_t word0 = read_rom_be32(rom, rom_offset + 0x00u);
-    const uint32_t word1 = read_rom_be32(rom, rom_offset + 0x04u);
-    const uint32_t magic0 = read_rom_be32(rom, rom_offset + 0x08u);
-    const uint32_t magic1 = read_rom_be32(rom, rom_offset + 0x0Cu);
-
-    if ((word0 >> 26) != 0x02u ||
-        word1 != 0u ||
-        magic0 != 0x46524147u ||
-        magic1 != 0x4D454E54u) {
-        return false;
-    }
-
-    if (stub_word != nullptr) {
-        *stub_word = word0;
-    }
-    return true;
-}
-
-
-void sync_rom_dma_overlays(uint32_t dev_addr, gpr dram_addr, uint32_t size, uint32_t direction) {
-    if (direction != 0 || size == 0) {
-        return;
-    }
-
-    const uint32_t physical_addr = k1_to_phys(dev_addr);
-    if (physical_addr < recomp::rom_base) {
-        return;
-    }
-
-    const uint32_t rom_offset = physical_addr - recomp::rom_base;
-    uint32_t ram_low = static_cast<uint32_t>(dram_addr);
-    if (ram_low >= 0xA0000000u && ram_low < 0xA0800000u) {
-        ram_low -= 0x20000000u;
-    }
-    const int32_t ram_addr = static_cast<int32_t>(ram_low);
-
-    std::fprintf(
-        stderr,
-        "[overlay-dma] ROM 0x%08X -> RAM 0x%08X size=0x%08X\n",
-        rom_offset,
-        static_cast<uint32_t>(ram_addr),
-        size
-    );
-    std::fflush(stderr);
-
-    // Stadium uses PI DMA for ordinary data, textures, header probes and
-    // executable fragments. Calling load_overlays() for every transfer can
-    // feed data-only ranges into N64ModernRuntime's code-section loader.
-    //
-    // A real Stadium fragment load starts with:
-    //   j <runtime entry>
-    //   nop
-    //   "FRAGMENT"
-    // and contains more than the 0x20-byte metadata header. Restrict overlay
-    // registration to that verified format.
-    uint32_t stub_word = 0;
-    if (!is_stadium_fragment_load(rom_offset, size, &stub_word)) {
-        return;
-    }
-
-    std::fprintf(
-        stderr,
-        "[overlay-register] ROM 0x%08X -> RAM 0x%08X size=0x%08X stub=0x%08X\n",
-        rom_offset,
-        static_cast<uint32_t>(ram_addr),
-        size,
-        stub_word
-    );
-    std::fflush(stderr);
-
-    load_overlays(rom_offset, ram_addr, size);
-}
-
 } // namespace
+
+extern "C" int32_t aero_cartridge_read_u32(uint32_t address) {
+    const uint32_t physical = k1_to_phys(address);
+    // PI transfers finish synchronously in the host runtime.
+    if (physical == 0x04600010u) return 0;
+    const auto rom = recomp::get_rom();
+    if (physical >= 0x10000000u &&
+        uint64_t(physical - 0x10000000u) + 4 <= rom.size()) {
+        return static_cast<int32_t>(read_rom_be32(rom, physical - 0x10000000u));
+    }
+    std::fprintf(stderr, "[cartridge] Unsupported direct read %08X\n", address);
+    std::_Exit(22);
+}
 
 // N64ModernRuntime already models the high-level Controller Pak API as
 // "no accessory present". NP3F's libultra build also references these
@@ -170,39 +103,4 @@ extern "C" void osPiReadIo_recomp(uint8_t* rdram, recomp_context* ctx) {
 // modifying the upstream runtime.
 extern "C" void osPiWriteIo_recomp(uint8_t*, recomp_context* ctx) {
     _return<s32>(ctx, 0);
-}
-
-
-// N64ModernRuntime performs ROM PI DMA correctly, but its generic PI path
-// does not update the recomp overlay lookup table for code copied after boot.
-// Route NP3F's PI DMA calls through these wrappers so dynamically loaded code
-// is registered at the RAM address where the game actually placed it.
-extern "C" void osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
-extern "C" void osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
-
-extern "C" void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
-    const uint32_t direction = static_cast<uint32_t>(ctx->r6);
-    const uint32_t dev_addr = static_cast<uint32_t>(ctx->r7) | recomp::rom_base;
-    const gpr dram_addr = MEM_W(0x10, ctx->r29);
-    const uint32_t size = static_cast<uint32_t>(MEM_W(0x14, ctx->r29));
-
-    // Register executable sections before the runtime sends the DMA-complete
-    // message, otherwise a newly awakened thread may resolve a function before
-    // the overlay has been added to func_map.
-    sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
-    osPiStartDma_recomp(rdram, ctx);
-}
-
-extern "C" void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
-    OSPiHandle* handle = TO_PTR(OSPiHandle, ctx->r4);
-    OSIoMesg* mb = TO_PTR(OSIoMesg, ctx->r5);
-
-    const uint32_t direction = static_cast<uint32_t>(ctx->r6);
-    const uint32_t dev_addr = handle->baseAddress | mb->devAddr;
-    const gpr dram_addr = mb->dramAddr;
-    const uint32_t size = mb->size;
-
-    // Same ordering guarantee as the non-handle PI path.
-    sync_rom_dma_overlays(dev_addr, dram_addr, size, direction);
-    osEPiStartDma_recomp(rdram, ctx);
 }

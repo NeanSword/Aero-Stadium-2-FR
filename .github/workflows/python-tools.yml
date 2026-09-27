@@ -21,6 +21,9 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall -q tools
 
+      - name: Test native relocation adapters
+        run: python tools/recomp/test_native_adapters.py
+
       - name: Validate JSON configuration
         run: |
           python -m json.tool config/np3f.json >/dev/null

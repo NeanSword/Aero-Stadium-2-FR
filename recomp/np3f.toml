@@ -6,7 +6,7 @@ entrypoint = 0x80000400
 symbols_file_path = "../build/np3f/recomp/np3f.syms.toml"
 rom_file_path = "../baseroms/fr/baserom.z64"
 output_func_path = "../generated/recomp/np3f"
-recomp_include = "#include \"recomp.h\""
+recomp_include = "#include \"recomp.h\"\n#include \"aero_platform.h\""
 functions_per_output_file = 50
 
 # set_watch_lohi writes R4300 CP0 WatchLo/WatchHi. Those hardware watchpoint
@@ -16,39 +16,158 @@ functions_per_output_file = 50
 [patches]
 stubs = ["set_watch_lohi"]
 
-# src/unk_220C0.s contains six "bltzal $zero" PC-capture idioms.
-# On R4300 these are used only to place PC+8 in $ra while the branch is never
-# taken. N64Recomp otherwise treats each encoded branch target as a callable
-# static function, including inline literal tables. Replace each idiom with
-# an explicit LUI/ORI pair that materializes the same PC+8 value in $ra.
-instruction = [
-    # func_80064CC0 reads PI_STATUS_REG directly at 0xA4600010.
-    # N64ModernRuntime models osPiGetStatus() as 0 (PI idle), so replace the
-    # direct MMIO load with "addiu $t7, $zero, 0".
-    { func = "func_80064CC0", vram = 0x80064CD8, value = 0x240F0000 },
+# These spin loops wait for the audio thread's counter. The native scheduler
+# dispatches external VI messages cooperatively; poll it without changing the
+# guest counter, comparison, or audio state.
+[[patches.hook]]
+func = "func_80035594"
+before_vram = 0x80035614
+text = "aero_poll_events(rdram);"
 
-    # The same helper then reads ROM address 0xB0000E38 only to compare
-    # its low 16 bits against 0x828A. Aero Stadium 2 already validates the
-    # exact NP3F ROM before startup, so materialize that expected value instead
-    # of dereferencing the raw cartridge address from generated host code.
-    # ori $t0, $zero, 0x828A
-    { func = "func_80064CC0", vram = 0x80064CF0, value = 0x3408828A },
+[[patches.hook]]
+func = "func_80035594"
+before_vram = 0x80035660
+text = "aero_poll_events(rdram);"
 
-    { func = "func_80021460", vram = 0x80021470, value = 0x3C1F8002 },
-    { func = "func_80021460", vram = 0x80021474, value = 0x37FF1478 },
+# Follow the game's fragment map while preserving its relocation/BSS logic.
+[[patches.hook]]
+func = "func_80002440"
+text = "aero_map_fragment((uint32_t)ctx->r4, (int32_t)ctx->r5, (uint32_t)ctx->r6);"
 
-    { func = "func_80021554", vram = 0x8002157C, value = 0x3C1F8002 },
-    { func = "func_80021554", vram = 0x80021580, value = 0x37FF1584 },
+[[patches.hook]]
+func = "func_8000251C"
+text = "aero_unmap_fragment((uint32_t)ctx->r4);"
 
-    { func = "func_800217D4", vram = 0x80021834, value = 0x3C1F8002 },
-    { func = "func_800217D4", vram = 0x80021838, value = 0x37FF183C },
+# Preserve the game's four cartridge checks. Route only their direct PI/ROM
+# reads through the host; original comparisons and failure paths still run.
+# The corresponding LW is replaced by NOP because the hook supplies its value.
+[[patches.hook]]
+func = "func_80064CC0"
+before_vram = 0x80064CD8
+text = "ctx->r15 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r14 + 0x10);"
+[[patches.instruction]]
+func = "func_80064CC0"
+vram = 0x80064CD8
+value = 0
+[[patches.hook]]
+func = "func_80064CC0"
+before_vram = 0x80064CF0
+text = "ctx->r8 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r25 + 0xE38);"
+[[patches.instruction]]
+func = "func_80064CC0"
+vram = 0x80064CF0
+value = 0
 
-    { func = "func_800217D4", vram = 0x80021858, value = 0x3C1F8002 },
-    { func = "func_800217D4", vram = 0x8002185C, value = 0x37FF1860 },
+[[patches.hook]]
+func = "func_800697F0"
+before_vram = 0x80069808
+text = "ctx->r15 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r14 + 0x10);"
+[[patches.instruction]]
+func = "func_800697F0"
+vram = 0x80069808
+value = 0
+[[patches.hook]]
+func = "func_800697F0"
+before_vram = 0x80069820
+text = "ctx->r8 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r25 + 0x504);"
+[[patches.instruction]]
+func = "func_800697F0"
+vram = 0x80069820
+value = 0
 
-    { func = "func_800217D4", vram = 0x8002187C, value = 0x3C1F8002 },
-    { func = "func_800217D4", vram = 0x80021880, value = 0x37FF1884 },
+[[patches.hook]]
+func = "func_82604390"
+before_vram = 0x826043A8
+text = "ctx->r15 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r14 + 0x10);"
+[[patches.instruction]]
+func = "func_82604390"
+vram = 0x826043A8
+value = 0
+[[patches.hook]]
+func = "func_82604390"
+before_vram = 0x826043C0
+text = "ctx->r8 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r25 + 0x800);"
+[[patches.instruction]]
+func = "func_82604390"
+vram = 0x826043C0
+value = 0
 
-    { func = "func_800217D4", vram = 0x800218A0, value = 0x3C1F8002 },
-    { func = "func_800217D4", vram = 0x800218A4, value = 0x37FF18A8 },
-]
+[[patches.hook]]
+func = "func_82700DD0"
+before_vram = 0x82700DE8
+text = "ctx->r15 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r14 + 0x10);"
+[[patches.instruction]]
+func = "func_82700DD0"
+vram = 0x82700DE8
+value = 0
+[[patches.hook]]
+func = "func_82700DD0"
+before_vram = 0x82700E00
+text = "ctx->r8 = (gpr)aero_cartridge_read_u32((uint32_t)ctx->r25 + 0xD10);"
+[[patches.instruction]]
+func = "func_82700DD0"
+vram = 0x82700E00
+value = 0
+
+# BLTZAL $zero is never taken but writes PC+8 to RA. Replace it and
+# its NOP delay slot with LUI/ORI preserving the link value. ROM unchanged.
+
+[[patches.instruction]]
+func = "func_80021460"
+vram = 0x80021470
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_80021460"
+vram = 0x80021474
+value = 0x37FF1478
+
+[[patches.instruction]]
+func = "func_80021554"
+vram = 0x8002157C
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_80021554"
+vram = 0x80021580
+value = 0x37FF1584
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x80021834
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x80021838
+value = 0x37FF183C
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x80021858
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x8002185C
+value = 0x37FF1860
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x8002187C
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x80021880
+value = 0x37FF1884
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x800218A0
+value = 0x3C1F8002
+
+[[patches.instruction]]
+func = "func_800217D4"
+vram = 0x800218A4
+value = 0x37FF18A8

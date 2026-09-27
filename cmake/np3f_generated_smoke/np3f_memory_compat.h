@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include "recomp.h"
 
-extern void aerostadium2_osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
-extern void aerostadium2_osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx);
-
-#define osPiStartDma_recomp aerostadium2_osPiStartDma_recomp
-#define osEPiStartDma_recomp aerostadium2_osEPiStartDma_recomp
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern recomp_func_t* aero_lookup_asset(uint8_t* rdram, int32_t target);
+#ifdef __cplusplus
+}
+#endif
 
 // Pokemon Stadium 2 FR uses KSEG1 aliases of main RDRAM in a few runtime
 // paths. N64Recomp's generic MEM_* macros currently treat all generated
@@ -174,15 +176,8 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
             ((runtime_pc + 4u) & 0xF0000000u) |
             ((word0 & 0x03FFFFFFu) << 2);
 
-        fprintf(
-            stderr,
-            "[fragment-stub] caller=%s base=0x%08X -> target=0x%08X word=0x%08X\n",
-            caller,
-            runtime_pc,
-            jump_target,
-            word0
-        );
-        fflush(stderr);
+        recomp_func_t* asset = aero_lookup_asset(rdram, (int32_t)jump_target);
+        if (asset != NULL) return asset;
         return get_function((int32_t)jump_target);
     }
 
@@ -212,6 +207,8 @@ static inline recomp_func_t* aerostadium2_np3f_lookup_func(uint8_t* rdram, gpr t
         fflush(stderr);
     }
 
+    recomp_func_t* asset = aero_lookup_asset(rdram, target32);
+    if (asset != NULL) return asset;
     return get_function(target32);
 }
 
