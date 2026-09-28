@@ -1,6 +1,34 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **28 septembre 2026, chantier textures**.
+Dernière mise à jour : **28 septembre 2026, modèles Switch — priorité Ho-Oh**.
+
+## Priorité active — modèles récents, pilote Ho-Oh pour l’introduction (28 septembre 2026)
+
+**Dernières demandes utilisateur :** abandonner la fidélité visuelle N64 pour les modèles ; utiliser des modèles officiels récents **3DS ou Switch**, sans recréation approximative ; respecter le gabarit de Stadium 2 ; commencer par **Ho-Oh**, visible selon l’utilisateur dans la cinématique d’introduction. Vérifier l’emploi exact du modèle dans cette scène avant d’annoncer un remplacement effectif.
+
+Le Germignon procédural a été **rejeté explicitement** (« sale gueule »). Ne pas reprendre cette voie ni poursuivre les starters procéduraux. Le modèle N64 sert désormais de référence de taille et d’animation, pas de base artistique à améliorer. Les essais rejetés sont conservés localement seulement.
+
+### Assets récents récupérés, aucun remplacement en jeu à ce stade
+
+Sources The Models Resource / Pokémon Scarlet–Violet (Switch) :
+- Ho-Oh, priorité : https://models.spriters-resource.com/nintendo_switch/pokemonscarletviolet/asset/352007/ — uploader stormygaret15. ZIP SHA-256 `11221739a1d75ce4d5afdc0c0a1897a440f7304661d2d5ff5cbd7a0b2c19ada4`. FBX importé dans Blender : 7 meshes, 9 998 triangles, 124 os/nœuds importés ; aucune animation dans l’archive. Textures et fichiers source locaux uniquement.
+- Germignon : https://models.spriters-resource.com/nintendo_switch/pokemonscarletviolet/asset/468036/ — uploader Poké-Brother. ZIP SHA-256 `1ef16410c80b781e7de91c4629c955a888a7ede1a4398763624f27ad245c115a`. FBX et textures importés, 82 os/nœuds, aucune animation source. Aperçu Blend/GLB créé ; feuilles posées sur les articulations existantes. Ne pas présenter l’animation de prévisualisation créée comme une animation Switch ou Stadium.
+
+Blender portable officiel 4.5.14 LTS préparé dans l’atelier local ; pas d’installation système. Pour la reprise, le dossier de travail est `graphics-workbench/` sous le miroir local du projet Codex. Les nouveaux modèles sont dans `graphics-workbench/local/pokemon-models/` (pas encore copiés au projet Downloads au moment de cette note).
+
+### Références N64 extraites et échelle
+
+Adaptateur local `tools/extract_np3f_pokemon_model.py` utilisant sans modification le décodeur public de Deftones565, commit `360da5c636fc75971ee3df97e271d98b176ea825`. Lecture seule de la ROM NP3F ; archive à `0x27ED000` vérifiée, 282 entrées, ID de chaque fragment contrôlé.
+- Ho-Oh, ID 250, record ROM `0x2D0CFD0`, 36 240 octets compressés, 92 144 décodés, 71 os, 703 triangles, 21 textures, zéro avertissement du parseur. **La vérification visuelle et celle de la pose d’introduction restent à faire.**
+- Germignon, ID 152, record `0x2B3BF30`, 40 os, 700 triangles, 12 textures. Calage uniforme du modèle Switch sur la hauteur du corps N64 hors feuille : facteur **51.2113001054**, hauteur **19.99762 unités Stadium**, largeur moderne 11.87968 contre 11.99890, profondeur moderne 20.72132 contre 21.96254. Pieds et centre du corps alignés. Contrôle numérique uniquement ; non vérifié en jeu. Fichier `germignon-switch-v2/scale-calibration.json`.
+
+### Limite actuelle et suite
+
+Le portage actuel charge des remplacements de **textures**, pas des GLB. Aucun de ces modèles n’est intégré au jeu ; le raccordement des squelettes, des animations et du rendu reste à développer. Aucune modification runtime, ROM ou checkpoints ; aucun rebuild. L’ancien blocage combat `0x80263890` reste hors scope.
+
+Suite : préparer Ho-Oh Switch, comparer sa taille et sa pose au Ho-Oh NP3F, identifier la séquence d’introduction et établir un raccordement concret. Garder le fond Johto et le logo AeroStadium 2 actifs. Ne pas confondre un rendu Blender avec une capture du jeu.
+
+---
 
 ## État actuel — fond Johto et logo AeroStadium 2 intégrés, 28 septembre 2026
 
