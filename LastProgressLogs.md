@@ -1,6 +1,20 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **29 septembre 2026, Ho-Oh spécial de l’introduction identifié**.
+Dernière mise à jour : **29 septembre 2026, remplacement Ho-Oh visible, textures corrigées, animation en cours de correction**.
+
+## Premier remplacement Ho-Oh visible — 29 septembre 2026
+
+Le véritable modèle Switch (9 998 triangles, 7 700 sommets exportés, squelette de 124 os/nœuds) est maintenant dessiné à la place des 112 appels/632 triangles du Ho-Oh spécial 281 dans l’exécutable expérimental. Les autres modèles et l’écran titre sont conservés. **Ce pilote n’est pas validé visuellement : le transfert d’animation déforme encore les ailes et une patte.** Ne pas déclarer le modèle terminé ni le promouvoir vers le stable.
+
+Les essais modernes de 80 s `20260929-230709-861`, 65 s `20260929-231648-866` et `20260929-232310-087` terminent avec sortie 0 et affichage progressant. Le test demandé de 120 s `20260929-230948-086` a échoué dans la démonstration combat, avec `Failed to find function at 0x80263890`, sortie -1073740791. **120 secondes normales ne sont donc pas validées.** Ce blocage reste hors périmètre ; ne pas le corriger sous l’autorisation Ho-Oh.
+
+Le défaut de couleurs est identifié et corrigé dans le pack expérimental v4 : les UV d’origine utilisent V entre 1 et 3, avec répétition par matériau. Les replier dans leur propre albedo avant assemblage de l’atlas 2048×2048 retrouve la queue jaune, les pattes bleues/grises et les extrémités vertes/blanches en jeu. Les premiers packs v1/v2 (queue rouge, pattes jaunes) sont des diagnostics rejetés.
+
+Le nouveau transfert conserve les pivots, la hiérarchie, les longueurs et les poids du squelette Switch. Les rotations des poignets et des pattes sont atténuées pour éviter les déformations extrêmes du transfert direct. L’aperçu hors jeu et le résultat runtime divergent encore ; une mesure ciblée des matrices et sommets à l’image 24 est en cours. Pack local actuel : `build/np3f/graphics-workbench/hooh-experimental-pack-v4`. Payload `AEROHO03`, SHA-256 `a4ceef6182847ef735fe8550e2a067f954131ade7d6f121b30c3c115bc5eff77`.
+
+Pour inspecter le passage très bref, le pilote peut maintenir **le rendu uniquement pendant 15 secondes**, via `-HoldFrame 24`. Le processeur du jeu continue pendant cette inspection : ce maintien n’est pas une validation de l’animation normale. Ne pas laisser cette option dans le lancement destiné à l’utilisateur. Observation Computer Use activée avant chaque lancement et session réinitialisée après fermeture.
+
+Sources de l’expérience : workspace AeroStadium2, `graphics-workbench/hooh-experiment` et `graphics-workbench/tools`. Les assets, la ROM, les dumps et le code expérimental ne sont pas publiés. Le journal sur main est autorisé explicitement par l’utilisateur, chemins locaux et empreintes compris.
 
 ## Ho-Oh de l’introduction identifié — 29 septembre 2026
 
