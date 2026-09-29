@@ -1,6 +1,48 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **29 septembre 2026, remplacement Ho-Oh visible, textures corrigées, animation en cours de correction**.
+Dernière mise à jour : **29 septembre 2026, Ho-Oh Switch v6 intégré, test normal de 120 secondes réussi**.
+
+## Ho-Oh Switch v6 intégré — test final de 120 secondes réussi, 29 septembre 2026
+
+Le véritable modèle Scarlet/Violet remplace maintenant Ho-Oh **spécial281** dans l’introduction, dans l’exécutable expérimental séparé. Posture de vol stabilisée, ailes/pattes/queue adaptées à son anatomie moderne, bonnes couleurs retrouvées. La tête et la mâchoire suivent leur mouvement natif : cri visible en jeu. L’utilisateur accepte une animation différente tant qu’elle est cohérente et que le Pokémon crie au moment du son. Le chemin audio est inchangé ; **le décalage sonore exact n’a pas été mesuré**.
+
+**Test final normal120s** : probe `20260929-234500-910`, sortie0, `completed=2891 age_ms=31 progressing=1`, audio samples7434816 peak21951. Lanceur v6 sans trace de modèle et sans pause graphique. Ho-Oh pendant son cri, écran titre avec fond/logo acceptés, puis menus observés via node_repl + @oai/sky. Start puis A utilisés pour quitter l’écran titre et éviter la démonstration combat. Observation initialisée avant le lancement, réinitialisée après fermeture. Ce test ne valide pas les combats.
+
+Un premier120s v5 `20260929-233903-215` avait aussi réussi (sortie0, completed2883, progressing1). Inspection fixe v6 `20260929-234239-591` de55s, sortie0, posture54 : bec ouvert, plumes/pattes/queue colorées. Cette inspection avec pause de rendu15s était un diagnostic, pas une validation de synchronisation. Les premiers prototypes v1/v2 et l’animation v4 non corrigée restent rejetés.
+
+Corrections finalisées :
+- Interpolation des rotations locale : slerp de la version hlslpp embarquée inverse les extrémités. Nouveau calcul vérifié aux extrémités, quart/demi-angle et chemin court, erreur maximale5.96e-8. RT64 amont inchangé.
+- Pose de repos du corps réorientée rigidement ; tronc cohérent ; rotation des poignets, pattes et queue atténuée. Hiérarchie/pivots/poids Switch conservés. Taille uniforme de départ27.647041740226, envergure241.495819 contre241.74642 natif281.
+- UV répétées par matériau, raccords des yeux découpés à V=0, sans clamp approximatif. Six triangles→18 avec surface/UV/poids conservés à précision numérique. Modèle source9998triangles ; payload final10010triangles,7716sommets,124os/nœuds, atlas2048².
+- Tables de textures remises dans l’ordre des appels conservés pour le curseur RT64 ; chargements TMEM des appels supprimés conservés via appels sans triangles.
+- Remplacement utilisable sans ouvrir une trace. Dumps de modèle désactivés dans le lanceur normal.
+
+Audit indépendant : matrices/positions v6 concordent avec le dump runtime à≈0.000036unité. Bornes projetées avant clipping, même caméra : frame24 largeur×1.56/hauteur×0.77, frame54 largeur×0.91/hauteur×1.37, par rapport au natif. Variation due aux ailes/queue/postures, pas à une erreur uniforme d’échelle. La vue verticale coupe aussi le modèle natif. Ce n’est pas une mesure de silhouette visible ni une validation de taille en combat.
+
+**Exécutable final** : `build/np3f/hooh-experimental-vs2022-x64/bin/AeroStadium2HoOh.exe`, SHA-256 `4E3CE09D15EF86554EBE465DEB2CE77DE98C93682566D1085D22F11E02A5E2AA`. Stable SHA-256 `AB2AB13B121B24993A060003BC4074AFB7FFB4FF4AC83AD29F213C223B7745E9` confirmé inchangé. Payload v6 AEROHO03 SHA-256 `1cf5850ae7c3d3cdd3c4d9c70c0ece7496448e165d1959b7ff3a84517f1c3be7`.
+
+**Lancement utilisateur** depuis le vrai projet Downloads :
+```powershell
+.\windows\run_np3f_hooh_experimental.ps1
+```
+Pas de durée maximale par défaut ; fermer la fenêtre normalement. -Seconds120 pour un test borné ; -Trace seulement pour diagnostic. Le lanceur sélectionne le pack v6 et les données séparées userdata-modern (1440p/MSAA4/4:3). L’exe seul ne sélectionne pas le remplacement. Le combat0x80263890 reste hors périmètre et non corrigé ; ne pas promouvoir ce pilote vers le stable.
+
+Reprise sauvegardée dans **C:\Users\dofus\Downloads\PokemonStadium2_FR_Windows_Next\pokestadiumgs-fr** :
+- docs/HOOH_SWITCH_PILOT.md et docs/LastProgressLogs.md ;
+- windows/run_np3f_hooh_experimental.ps1 ;
+- build/np3f/graphics-workbench/hooh-experiment-source (copie C++/CMake/runner) ;
+- tools/graphics : exporteur, payload/pack, previews, retarget math, helper UV, extracteurs mis à jour --include-special ;
+- build/np3f/graphics-workbench/pokemon-models : intro-special-281-v1, intro-special-281-poses-v1, hooh-runtime-payload-v6, sources/calibration Switch déjà présentes ;
+- build/np3f/graphics-workbench/hooh-experimental-pack-v6 et logs/probes séparés.
+
+Le cache CMake actuel référence toujours l’atelier Codex graphics-workbench/hooh-experiment. Si cet atelier disparaît, reconstruire dans un nouveau build à partir de la copie locale avec STABLE_PROJECT_DIR ; ne pas déplacer le cache ou changer le stable. Sources/images/ROM/dumps/code expérimental restent locaux, journal seul publié sur main avec autorisation explicite.
+
+**Suite demandée par l’utilisateur** : après Ho-Oh, une modification de l’écran titre, puis les autres Pokémon de l’introduction. La modification précise de l’écran titre a été demandée via une question et reste à recevoir. Les autres modèles modernes ne sont pas encore intégrés ; ne pas déclarer tout le portage terminé.
+
+---
+
+Les sections ci-dessous conservent l’historique des étapes, dont les états provisoires supersédés par le résultat v6 ci-dessus.
+
 
 ## Premier remplacement Ho-Oh visible — 29 septembre 2026
 
