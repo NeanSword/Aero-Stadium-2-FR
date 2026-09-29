@@ -1,6 +1,18 @@
 # LastProgressLogs — Aero-Stadium-2-FR
 
-Dernière mise à jour : **28 septembre 2026, Ho-Oh Switch préparé — intégration expérimentale autorisée**.
+Dernière mise à jour : **29 septembre 2026, Ho-Oh spécial de l’introduction identifié**.
+
+## Ho-Oh de l’introduction identifié — 29 septembre 2026
+
+L’utilisateur demande d’activer Computer Use avant chaque lancement du runtime et de terminer l’observation après sa fermeture. Le skill computer-use 26.928.20755 utilise node_repl + @oai/sky ; initialiser et interroger les fenêtres avant le lancement, capturer uniquement la fenêtre du jeu, puis réinitialiser la session après fermeture. Aucune API de vidéo continue/start-stop n’est exposée : ne pas prétendre à une observation continue.
+
+**Découverte déterminante : Ho-Oh dans l’introduction est l’asset spécial 281, pas le modèle de combat 250.** La trace du probe `20260928-232503-937` retourne 212,232,182,227,197,172,249,281. Extraction locale de 281 et aperçu Blender vérifié visuellement : c’est bien Ho-Oh. ROM `0x2D6FA40`, fragment décodé 79 232 octets, allocation résidente `0x12E80`, 37 os, 632 triangles, 19 textures. SHA-256 fragment `fc45474dc46bb04ed98b9daeb05f4bfa3516f407666d07913518ff0ab2bba350`. Table d’introduction `D_82911C60`, huit entrées de 20 octets, dernière entrée ID281 ; ne pas remplacer Lugia ni patcher arbitrairement 250.
+
+**Exécutable expérimental indépendant construit :** `build/np3f/hooh-experimental-vs2022-x64/bin/AeroStadium2HoOh.exe`, SHA-256 `CF49C20407EC8F614139426306D200AFCAD22A2708EBD95DAACD0F76C5052CD3`. Il contient seulement une trace ciblée des accesseurs de modèles, **aucun remplacement moderne encore rendu**. Probe 80 s complet, sortie0, `completed=1852 age_ms=15 progressing=1`. Stable conservé, hash AB2AB13B… inchangé.
+
+Sources de l’expérience sous `graphics-workbench/hooh-experiment/` dans le miroir Codex ; construction réutilise les bibliothèques CPU/runtime/RT64 existantes, avec userdata et logs séparés dans Downloads. Aucun code expérimental ni modèle publié. L’exception graphique limitée accordée par l’utilisateur reste en vigueur. Prochaine étape : extraire les poses de l’asset281, capturer ses matrices/commandes de dessin, transférer au modèle Switch et valider la taille en scène.
+
+---
 
 ## Ho-Oh Switch — préparation terminée, intégration expérimentale autorisée (28 septembre 2026)
 
